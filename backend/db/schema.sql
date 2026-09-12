@@ -1,0 +1,2 @@
+-- DDL: Definición de las 9 tablas en MySQL (SAPC-Chawal-App)
+-- Archivo schema.sql inicial
