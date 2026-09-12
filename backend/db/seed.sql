@@ -1,0 +1,2 @@
+-- DML: Datos iniciales de prueba (roles, admin, etc.)
+-- Archivo seed.sql inicial
