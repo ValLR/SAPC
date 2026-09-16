@@ -5,28 +5,50 @@ node_modules/
 
 # Variables de Entorno con claves reales (NUNCA SUBIR)
 .env
+.env*.local
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Android / Mobile Builds & Cache
-mobile/android/app/build/
-mobile/android/.gradle/
+# Expo & Mobile
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
 *.apk
 *.aab
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/ios/
+mobile/android/
 
 # Logs y Temporales del Sistema
 npm-debug.log*
 
 # Documentación y archivos técnicos locales (NO subir)
 docs-local/
+npm-debug.*
 *.local.md
 *.private.*
 credenciales.*
 yarn-debug.log*
+yarn-debug.*
 yarn-error.log*
+yarn-error.*
 .DS_Store
 Thumbs.db
+*.pem
+*.tsbuildinfo
+
+# IDEs & Herramientas
 .vscode/
 .idea/
