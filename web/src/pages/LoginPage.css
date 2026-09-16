@@ -1,0 +1,95 @@
+.login-page-container {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-app);
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: 36px 32px;
+  box-shadow: var(--shadow-modal);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-logo-container {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.login-logo-img {
+  width: 180px;
+  height: auto;
+  object-fit: contain;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-form {
+  width: 100%;
+}
+
+.login-role-selector {
+  margin-bottom: 20px;
+  padding: 12px;
+  background-color: var(--color-primary-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-role-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.login-role-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.role-chip {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background-color: #ffffff;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.role-chip.active-admin {
+  background-color: var(--color-secondary);
+  color: #ffffff;
+  border-color: var(--color-secondary-dark);
+}
+
+.role-chip.active-terapeuta {
+  background-color: #3B82F6;
+  color: #ffffff;
+  border-color: #2563EB;
+}
+
+.login-submit-btn {
+  margin-top: 8px;
+}
