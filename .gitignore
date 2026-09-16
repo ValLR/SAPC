@@ -14,6 +14,7 @@ node_modules/
 # Expo & Mobile
 .expo/
 dist/
+dist-ssr/
 web-build/
 expo-env.d.ts
 .kotlin/
