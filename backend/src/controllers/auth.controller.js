@@ -19,7 +19,7 @@ const initializeMockUser = async () => {
   try {
     const hashedPassword = await bcrypt.hash("Password2026!", 10);
     MOCK_USER.password_hash = hashedPassword;
-    console.log("🔐 Hash de contraseña mock generado correctamente");
+    console.log("Hash de contraseña mock generado correctamente");
   } catch (error) {
     console.error("Error generando hash mock:", error);
   }
