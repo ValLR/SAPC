@@ -11,11 +11,11 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# Documentación local (NO subir a GitHub)
-DOCUMENTACION_LOCAL.md
-notas_desarrollo.md
-credenciales.txt
-config_local.json
+# Documentación y archivos locales (NO subir a GitHub)
+../docs-local/
+notas_*.md
+credenciales.*
+config_local.*
 
 # Logs
 logs/
