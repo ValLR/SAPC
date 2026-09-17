@@ -87,12 +87,14 @@ INSERT INTO usuarios
 
 -- =====================================================================
 -- §4  PROFESIONALES  (1:1 con usuarios 2, 3, 4)
+--     [R19] Incluye titulo_profesional y estado_disponibilidad (US-13)
 -- =====================================================================
 INSERT INTO profesionales
-    (id_profesional, id_usuario, numero_registro, id_especialidad_principal, anios_experiencia, biografia) VALUES
-    (1, 2, 'RNPI-2020-00123', 1, 8, 'Kinesióloga especialista en rehabilitación deportiva.'),
-    (2, 3, 'RNPI-2018-00456', 2, 12,'Fonoaudiólogo con enfoque en terapia infantil.'),
-    (3, 4, 'RNPI-2022-00789', 4, 4, 'Psicóloga clínica, terapia cognitivo-conductual.');
+    (id_profesional, id_usuario, numero_registro, titulo_profesional,
+     id_especialidad_principal, anios_experiencia, biografia, estado_disponibilidad) VALUES
+    (1, 2, 'RNPI-2020-00123', 'Kinesióloga',   1, 8,  'Kinesióloga especialista en rehabilitación deportiva.',        'DISPONIBLE'),
+    (2, 3, 'RNPI-2018-00456', 'Fonoaudiólogo', 2, 12, 'Fonoaudiólogo con enfoque en terapia infantil.',               'DISPONIBLE'),
+    (3, 4, 'RNPI-2022-00789', 'Psicóloga',     4, 4,  'Psicóloga clínica, terapia cognitivo-conductual.',             'DISPONIBLE');
 
 -- =====================================================================
 -- §5  PACIENTES  (1:1 con usuarios 5, 6, 7)
@@ -273,6 +275,7 @@ SELECT id_usuario, rut, nombre, apellido, email, rol, estado FROM v_usuarios_rol
 
 SELECT '=== PROFESIONALES ===' AS seccion;
 SELECT p.id_profesional, u.nombre, u.apellido, p.numero_registro,
+       p.titulo_profesional, p.estado_disponibilidad,
        e.nombre AS especialidad_principal, p.anios_experiencia
 FROM   profesionales p
 JOIN   usuarios u        ON u.id_usuario = p.id_usuario

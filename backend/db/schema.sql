@@ -22,6 +22,8 @@
 --   [R16] Pagos con exclusividad XOR (cita | reserva de clase)
 --   [R17] comprobantes_pdf 1:1 con pagos (resuelve la duda del docente)
 --   [R18] novedades (contenido institucional)
+--   [R19] US-13: campo titulo_profesional + estado_disponibilidad operativa
+--         (distinta de `activo`, que sigue siendo el soft-delete)
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -122,16 +124,28 @@ CREATE TABLE profesionales (
     id_profesional            INT UNSIGNED     NOT NULL AUTO_INCREMENT,
     id_usuario                INT UNSIGNED     NOT NULL COMMENT '1:1 con usuarios',
     numero_registro           VARCHAR(30)      NOT NULL COMMENT 'Registro profesional (Superintendencia de Salud)',
+    -- [R19] Título profesional (ej: "Kinesiólogo", "Psicóloga").
+    --       Dato DISTINTO de numero_registro (folio de la Superintendencia).
+    --       Requerido por US-13 (CRUD de terapeutas).
+    titulo_profesional        VARCHAR(100)     NULL COMMENT '[R19] Título del profesional',
     id_especialidad_principal INT UNSIGNED     NULL,
     anios_experiencia         TINYINT UNSIGNED NOT NULL DEFAULT 0,
     biografia                 TEXT             NULL,
-    activo                    TINYINT(1)       NOT NULL DEFAULT 1,
+    -- [R19] Estado de DISPONIBILIDAD OPERATIVA (agenda), distinto del
+    --       soft-delete `activo`. Permite distinguir una ausencia temporal
+    --       de una licencia prolongada sin desactivar la cuenta.
+    --       Requerido por US-13 (CRUD de terapeutas).
+    estado_disponibilidad     ENUM('DISPONIBLE','NO_DISPONIBLE','LICENCIA')
+                              NOT NULL DEFAULT 'DISPONIBLE'
+                              COMMENT '[R19] Disponibilidad operativa para agendar',
+    activo                    TINYINT(1)       NOT NULL DEFAULT 1 COMMENT 'Soft-delete (0 = ficha deshabilitada)',
     created_at                TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id_profesional),
     UNIQUE KEY uq_profesionales_usuario  (id_usuario),   -- [R3] fuerza 1:1
     UNIQUE KEY uq_profesionales_registro (numero_registro),
     KEY ix_profesionales_especialidad    (id_especialidad_principal),
+    KEY ix_profesionales_disponibilidad  (estado_disponibilidad, activo),
     CONSTRAINT fk_profesionales_usuario
         FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
