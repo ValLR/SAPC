@@ -3,6 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./src/routes/auth.routes');
+const terapeutasRoutes = require('./src/routes/terapeutas.routes');
+const especialidadesRoutes = require('./src/routes/especialidades.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,13 +25,19 @@ app.get('/api/health', (req, res) => {
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
 
+// Rutas de gestión de terapeutas y especialidades (US-13)
+app.use('/api/terapeutas', terapeutasRoutes);
+app.use('/api/especialidades', especialidadesRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
     message: 'SAPC Chawal API REST Running',
     endpoints: {
       health: '/api/health',
-      auth: '/api/auth'
+      auth: '/api/auth',
+      terapeutas: '/api/terapeutas',
+      especialidades: '/api/especialidades'
     }
   });
 });
