@@ -18,6 +18,12 @@ mobile/android/.gradle/
 
 # Logs y Temporales del Sistema
 npm-debug.log*
+
+# Documentación y archivos técnicos locales (NO subir)
+docs-local/
+*.local.md
+*.private.*
+credenciales.*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
