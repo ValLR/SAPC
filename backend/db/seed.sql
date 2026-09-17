@@ -12,10 +12,8 @@
 SET NAMES utf8mb4;
 SET @PWD_HASH = '$2b$10$D0YlhS.MhU0kRRJmm6oeVOuIeihxhs/iHW1jlbYLpDzyPvq/La76q';
 
-<<<<<<< Updated upstream
-=======
 USE chawal_db; 
->>>>>>> Stashed changes
+
 -- ---------------------------------------------------------------------
 -- Limpieza idempotente (respeta orden de dependencias)
 -- ---------------------------------------------------------------------
