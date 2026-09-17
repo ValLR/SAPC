@@ -1,0 +1,192 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SAPC Chawal - API de Autenticación",
+    "description": "Contrato de API para integración Frontend Mobile (React Native) - US-01 (SCRUM-9)",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Tech Lead Backend",
+      "email": "dev@chawal.cl"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://10.0.2.2:3000/api",
+      "description": "Servidor de desarrollo para React Native (Android Emulator)"
+    },
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Servidor de desarrollo local"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check - Verificar estado de la API",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "API funcionando correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "OK" },
+                    "message": { "type": "string", "example": "API SAPC-Chawal activa" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Autenticación de Usuario",
+        "description": "Login con email y contraseña, retorna JWT token para autorización",
+        "tags": ["Autenticación"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "admin@chawal.cl",
+                    "description": "Email del usuario registrado"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "Password2026!",
+                    "description": "Contraseña del usuario"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Autenticación exitosa",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Autenticación exitosa" },
+                    "token": {
+                      "type": "string",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                      "description": "JWT Token para usar en header Authorization: Bearer <token>"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id_usuario": { "type": "number", "example": 1 },
+                        "rut": { "type": "string", "example": "12345678-9" },
+                        "nombre": { "type": "string", "example": "Admin" },
+                        "apellido": { "type": "string", "example": "Chawal" },
+                        "email": { "type": "string", "example": "admin@chawal.cl" },
+                        "rol": { "type": "string", "example": "ADMINISTRADOR" }
+                      }
+                    },
+                    "expires_in": { "type": "string", "example": "8h" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "message": { "type": "string", "example": "Email y contraseña son requeridos" },
+                    "error": { "type": "string", "example": "MISSING_CREDENTIALS" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales incorrectas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "message": { "type": "string", "example": "Credenciales incorrectas" },
+                    "error": { "type": "string", "example": "INVALID_CREDENTIALS" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "La cuenta existe y las credenciales son válidas, pero el usuario no está activo (estado distinto de ACTIVO: INACTIVO, BLOQUEADO o PENDIENTE)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "message": { "type": "string", "example": "La cuenta no está activa" },
+                    "error": { "type": "string", "example": "ACCOUNT_NOT_ACTIVE" }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": false },
+                    "message": { "type": "string", "example": "Error interno del servidor" },
+                    "error": { "type": "string", "example": "INTERNAL_SERVER_ERROR" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtenido del endpoint /auth/login"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Endpoints de monitoreo"
+    },
+    {
+      "name": "Autenticación",
+      "description": "Gestión de autenticación y JWT tokens"
+    }
+  ]
+}

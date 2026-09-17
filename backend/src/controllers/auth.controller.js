@@ -1,36 +1,11 @@
 // Controlador de Autenticación - US-01 (SCRUM-9)
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
-// Usuario mock con hash real de bcrypt para "Password2026!"
-const MOCK_USER = {
-  id_usuario: 1,
-  rut: "12345678-9",
-  nombre: "Admin",
-  apellido: "Chawal",
-  email: "admin@chawal.cl",
-  // Hash generado: await bcrypt.hash("Password2026!", 10)
-  password_hash: "$2b$10$8K.3VZ.7E.K7v5J5Y.JxN.xYV3zv.v.v.v.v.v.v.v.v.v.v.v.v.v",
-  rol: "ADMINISTRADOR"
-};
-
-// Generar hash real al inicializar (para desarrollo)
-const initializeMockUser = async () => {
-  try {
-    const hashedPassword = await bcrypt.hash("Password2026!", 10);
-    MOCK_USER.password_hash = hashedPassword;
-    console.log("Hash de contraseña mock generado correctamente");
-  } catch (error) {
-    console.error("Error generando hash mock:", error);
-  }
-};
-
-// Inicializar al cargar el módulo
-initializeMockUser();
+const pool = require('../config/db');
 
 /**
  * POST /api/auth/login
- * Autenticación de usuario con JWT y validación bcrypt
+ * Autenticación de usuario con JWT y validación bcrypt contra MySQL
  */
 const login = async (req, res) => {
   try {
@@ -45,8 +20,20 @@ const login = async (req, res) => {
       });
     }
 
-    // Validar email existe
-    if (email !== MOCK_USER.email) {
+    // Buscar usuario por email (JOIN con roles para obtener el nombre del rol)
+    const [rows] = await pool.query(
+      `SELECT u.id_usuario, u.rut, u.nombre, u.apellido, u.email,
+              u.password_hash, u.estado, r.nombre_rol AS rol
+         FROM usuarios u
+         JOIN roles    r ON r.id_rol = u.id_rol
+        WHERE u.email = ?
+        LIMIT 1`,
+      [email]
+    );
+
+    // Email inexistente -> misma respuesta que password incorrecta
+    // (no se revela si el email existe o no)
+    if (rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: "Credenciales incorrectas",
@@ -54,9 +41,11 @@ const login = async (req, res) => {
       });
     }
 
+    const user = rows[0];
+
     // Validar contraseña con bcrypt.compare() - Validación criptográfica real
-    const isPasswordValid = await bcrypt.compare(password, MOCK_USER.password_hash);
-    
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -65,21 +54,36 @@ const login = async (req, res) => {
       });
     }
 
+    // Validar que la cuenta esté activa
+    if (user.estado !== 'ACTIVO') {
+      return res.status(403).json({
+        success: false,
+        message: "La cuenta no está activa",
+        error: "ACCOUNT_NOT_ACTIVE"
+      });
+    }
+
     // Generar JWT Token
     const tokenPayload = {
-      user_id: MOCK_USER.id_usuario,
-      rol: MOCK_USER.rol,
-      email: MOCK_USER.email
+      user_id: user.id_usuario,
+      rol: user.rol,
+      email: user.email
     };
 
     const token = jwt.sign(
-      tokenPayload, 
+      tokenPayload,
       process.env.JWT_SECRET,
-      { 
+      {
         expiresIn: process.env.JWT_EXPIRES_IN || '8h',
         issuer: 'SAPC-Chawal-API'
       }
     );
+
+    // Actualizar último acceso (best-effort: no bloquea la respuesta)
+    pool.query(
+      'UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = ?',
+      [user.id_usuario]
+    ).catch(() => {});
 
     // Respuesta exitosa con token y datos del usuario (sin hash)
     return res.status(200).json({
@@ -87,12 +91,12 @@ const login = async (req, res) => {
       message: "Autenticación exitosa",
       token,
       user: {
-        id_usuario: MOCK_USER.id_usuario,
-        rut: MOCK_USER.rut,
-        nombre: MOCK_USER.nombre,
-        apellido: MOCK_USER.apellido,
-        email: MOCK_USER.email,
-        rol: MOCK_USER.rol
+        id_usuario: user.id_usuario,
+        rut: user.rut,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        email: user.email,
+        rol: user.rol
       },
       expires_in: process.env.JWT_EXPIRES_IN || '8h'
     });
