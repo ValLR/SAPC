@@ -28,6 +28,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION,ERROR_FOR_DIVISION_BY_ZERO';
 
+USE chawal_db;
 -- ---------------------------------------------------------------------
 -- LIMPIEZA IDEMPOTENTE (orden inverso a dependencias)
 -- ---------------------------------------------------------------------
