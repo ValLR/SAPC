@@ -12,8 +12,7 @@
 SET NAMES utf8mb4;
 SET @PWD_HASH = '$2b$10$D0YlhS.MhU0kRRJmm6oeVOuIeihxhs/iHW1jlbYLpDzyPvq/La76q';
 
-USE chawal_db; 
-
+USE chawal_db;
 -- ---------------------------------------------------------------------
 -- Limpieza idempotente (respeta orden de dependencias)
 -- ---------------------------------------------------------------------
