@@ -11,8 +11,7 @@ import { colors } from '../theme/colors';
 import CustomButton from './CustomButton';
 
 /**
- * Modal de diálogo para errores de autenticación (Wireframe 2)
- * Utiliza el ícono oficial de Material UI (MaterialIcons) sin emojis.
+ * Modal de diálogo para errores de autenticación
  *
  * @param {Object} props
  * @param {boolean} props.visible - Controla la visibilidad del modal
@@ -37,7 +36,6 @@ export const AuthErrorModal = ({
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.modalCard}>
-              {/* Ícono de Advertencia Circular Material UI (!) */}
               <View style={styles.iconContainer}>
                 <MaterialIcons
                   name="priority-high"
@@ -46,13 +44,10 @@ export const AuthErrorModal = ({
                 />
               </View>
 
-              {/* Título de Error */}
               <Text style={styles.title}>{title}</Text>
 
-              {/* Mensaje de Error */}
               <Text style={styles.message}>{message}</Text>
 
-              {/* Botón "Entendido" en Naranja Cálido (#E08736) */}
               <CustomButton
                 title="Entendido"
                 onPress={onClose}

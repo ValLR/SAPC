@@ -6,34 +6,33 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import LogoChawal from '../components/LogoChawal';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
 import AuthErrorModal from '../components/AuthErrorModal';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Pantalla de Inicio de Sesión (LoginScreen)
- * Implementa los estados y validaciones visuales definidos en los Wireframes 1, 2 y 3.
  *
  * @param {Object} props
- * @param {Function} props.onLoginSuccess - Callback simulado al iniciar sesión con éxito
+ * @param {Function} [props.onLoginSuccess] - Callback opcional al iniciar sesión con éxito
  */
 export const LoginScreen = ({ onLoginSuccess }) => {
+  const { login, isLoading } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Estados de validación de error por campo
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  // Estado para visibilidad del modal de error de autenticación (Wireframe 2)
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
 
-  // Validación de formato de correo electrónico
   const validateEmail = (text) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!text.trim()) {
@@ -45,7 +44,6 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     return '';
   };
 
-  // Handler para cambio en input Correo
   const handleEmailChange = (text) => {
     setEmail(text);
     if (emailError) {
@@ -59,7 +57,6 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     }
   };
 
-  // Handler para cambio en input Contraseña
   const handlePasswordChange = (text) => {
     setPassword(text);
     if (passwordError) {
@@ -73,14 +70,11 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     }
   };
 
-  // Verificación si el formulario es completamente válido para habilitar el botón
   const isEmailValid = email.trim() !== '' && validateEmail(email) === '';
   const isPasswordValid = password.trim() !== '';
   const isFormValid = isEmailValid && isPasswordValid;
 
-  // Handler al presionar el botón "Ingresa"
-  const handleLogin = () => {
-    // Si por alguna razón la función se dispara sin validación
+  const handleLogin = async () => {
     const errMail = validateEmail(email);
     const errPass = password.trim() ? '' : 'Campo requerido';
 
@@ -90,19 +84,18 @@ export const LoginScreen = ({ onLoginSuccess }) => {
       return;
     }
 
-    // Simulación de credenciales de prueba:
-    // Si la contraseña es "error" o "123", dispara el Modal de Error (Wireframe 2)
-    if (password.toLowerCase() === 'error' || password === '123') {
+    const result = await login(email, password);
+
+    if (result.success) {
+      if (onLoginSuccess) {
+        onLoginSuccess(result.user);
+      }
+    } else {
       setModalMessage(
-        'El correo o la contraseña ingresada no son correctos. Por favor, verifica tus datos e inténtalo nuevamente'
+        result.message ||
+          'El correo o la contraseña ingresada no son correctos. Por favor, verifica tus datos e inténtalo nuevamente.'
       );
       setShowErrorModal(true);
-      return;
-    }
-
-    // Si las credenciales son válidas (Mock de éxito -> Escenario 1)
-    if (onLoginSuccess) {
-      onLoginSuccess({ email });
     }
   };
 
@@ -117,13 +110,10 @@ export const LoginScreen = ({ onLoginSuccess }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* 1. Header con Logo Institucional SAPC Chawal */}
             <LogoChawal variant="full" size={180} style={styles.logo} />
 
-            {/* 2. Título de Bienvenida */}
             <Text style={styles.title}>Hola de nuevo</Text>
 
-            {/* 3. Formulario Transaccional */}
             <View style={styles.form}>
               <CustomInput
                 label="Correo"
@@ -146,16 +136,15 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                 error={passwordError}
               />
 
-              {/* 4. Botón de Ingreso (Habilitado Teal #1B7B75 | Deshabilitado Gris #CBD5E1) */}
               <CustomButton
                 title="Ingresa"
                 onPress={handleLogin}
                 disabled={!isFormValid}
+                loading={isLoading}
                 style={styles.loginButton}
               />
             </View>
 
-            {/* Modal de Error de Autenticación (Wireframe 2) */}
             <AuthErrorModal
               visible={showErrorModal}
               onClose={() => setShowErrorModal(false)}

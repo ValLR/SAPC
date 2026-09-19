@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import LogoChawal from '../components/LogoChawal';
 import CustomButton from '../components/CustomButton';
 
 /**
- * Pantalla Mock del Menú Principal (HomeScreen)
  * Se despliega al completar un inicio de sesión exitoso.
  *
  * @param {Object} props
- * @param {Object} [props.user] - Datos mock del usuario autenticado
+ * @param {Object} [props.user] - Datos del usuario autenticado
  * @param {Function} props.onLogout - Callback para cerrar sesión y retornar al Login
  */
 export const HomeScreen = ({ user, onLogout }) => {
