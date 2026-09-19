@@ -3,156 +3,160 @@ Sistema de Agendamiento, Pagos y Contenido (S.A.P.C. Chawal)
 
 ---
 
-## 📂 Estructura del Repositorio (`SAPC-Chawal-App`)
+## Estructura del Repositorio (`SAPC-Chawal-App`)
 
 ```text
 SAPC-Chawal-App/
 ├── .gitignore
 ├── .env.example
 ├── README.md
-├── Documentation/            # Documentación general y contratos API
+├── Documentation/            # Documentación general y diagramas del sistema
 │
-├── backend/                  # API REST (Node.js + Express)
+├── backend/                  # API REST (Node.js + Express + MySQL 8.0)
 │   ├── .env.example
-│   ├── server.js             # Punto de entrada de la API
+│   ├── server.js             # Punto de entrada de la API REST (Puerto 3000)
 │   ├── test-login.js         # Pruebas automatizadas de autenticación
 │   ├── test-terapeutas.js    # Pruebas automatizadas de CRUD terapeutas
 │   ├── src/
-│   │   ├── config/           # Conexión DB, variables JWT
+│   │   ├── config/           # Conexión DB MySQL, variables JWT
 │   │   ├── controllers/      # Lógica de endpoints (auth, terapeutas, especialidades)
 │   │   ├── middlewares/      # verifyToken, requireRole (RBAC)
 │   │   ├── routes/           # Enrutadores Express (/api/auth, /api/terapeutas, /api/especialidades)
 │   │   └── utils/            # Helpers
 │   └── db/                   # Scripts SQL del sistema
 │       ├── schema.sql        # DDL: Definición de tablas en MySQL (17 tablas)
-│       └── seed.sql          # DML: Datos iniciales de prueba
+│       └── seed.sql          # DML: Datos iniciales de prueba (Credenciales oficiales)
 │
 ├── mobile/                   # App Móvil (React Native / Expo SDK 57)
 │   ├── .env.example
 │   ├── US-02-LOGIN-PLAN.md   # Especificación visual, estado de tareas y Plan de Pruebas QA
 │   ├── App.js                # Enrutamiento condicional y AuthProvider
+│   ├── __tests__/            # Pruebas unitarias Jest (authService, storageService, AuthContext)
 │   └── src/
 │       ├── components/       # UI (CustomInput, CustomButton, AuthErrorModal, LogoChawal)
 │       ├── context/          # AuthContext (Estado de sesión global y auto-login)
 │       ├── screens/          # Pantallas (LoginScreen, HomeScreen)
-│       ├── services/         # authService (HTTP client REST) y storageService (SecureStore JWT)
-│       └── theme/            # Tokens de diseño Chawal (Colores Teal #1B7B75, Naranja #E08736, etc.)
+│       ├── services/         # authService (Detección IP de host Expo) y storageService (SecureStore JWT)
+│       └── theme/            # Tokens de diseño Chawal (Verde Teal #1B7B75, Naranja #E08736)
 │
-└── web/                      # Portal Web Administrativo (React)
-    ├── .env.example
-    └── US-04-WEB-ROUTING-PLAN.md
+└── web/                      # Portal Web Administrativo (React 19 + Vite + Vitest)
+    ├── US-04-WEB-ROUTING-PLAN.md # Plan de navegación, rutas protegidas y guía QA
+    ├── vite.config.js        # Configuración de Vite y Vitest (jsdom)
+    ├── src/
+    │   ├── __tests__/        # Pruebas unitarias Vitest (authService, AuthContext, ProtectedRoute)
+    │   ├── assets/           # Logos e imágenes vectoriales
+    │   ├── components/       # Layout (Sidebar, AdminLayout) y UI común (Button, Input)
+    │   ├── context/          # AuthContext (Persistencia localStorage y RBAC)
+    │   ├── pages/            # Vistas (LoginPage, DashboardPage, PlaceholderPage)
+    │   ├── routes/           # AppRoutes y ProtectedRoute (Guardián de rutas)
+    │   ├── services/         # authService (REST Client HTTP)
+    │   └── styles/           # Tokens de diseño y estilos globales CSS
 ```
 
 ---
 
-## 🗄️ Base de Datos (MySQL 8.0)
+## Guía de Inicio Rápido (Puesta en Marcha)
 
-### Requisitos
-- MySQL 8.0 (InnoDB, `utf8mb4_unicode_ci`)
+Para levantar la solución completa en tu máquina local, sigue este orden:
 
-### Puesta en marcha
+### 1. Base de Datos (MySQL 8.0)
+
+**Requisitos**: MySQL 8.0 corriendo en `localhost:3306`.
 
 ```sql
--- 1. Crear la base de datos
+-- Crear la base de datos
 CREATE DATABASE IF NOT EXISTS chawal_db
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
+Ejecutar los scripts SQL desde la raíz del repositorio:
 ```bash
-# 2. Cargar esquema y datos (desde la raíz del repo)
 mysql -u root -p chawal_db < backend/db/schema.sql
 mysql -u root -p chawal_db < backend/db/seed.sql
 ```
+*(También puedes abrirlos e ingresarlos desde MySQL Workbench u otra GUI).*
 
-> También se pueden ejecutar ambos scripts desde MySQL Workbench (`File → Open SQL Script`), seleccionando la BD `chawal_db`.
+#### Credenciales Oficiales de Prueba (Seed Data)
+La contraseña de **TODOS** los usuarios del seed es **`Password2026!`**:
 
-### Contenido del esquema
-- **17 tablas** (identidad, dominio, operación, finanzas y soporte)
-- **4 triggers**: validación de citas (INSERT/UPDATE), auditoría y control de aforo de clases
-- **1 stored procedure**: `sp_agendar_cita` (transaccional, con bloqueo pesimista)
-- **1 vista**: `v_usuarios_roles` (usada por el login)
-
-### Usuarios de prueba
-Todos los usuarios del seed comparten la contraseña **`Password2026!`**.
-
-| Email | Rol |
-|---|---|
-| `admin@chawal.cl` | ADMINISTRADOR |
-| `camila.rojas@chawal.cl` | TERAPEUTA |
-| `matias.fuentes@chawal.cl` | TERAPEUTA |
-| `valentina.soto@chawal.cl` | TERAPEUTA |
-| `pedro.gonzalez@mail.cl` | PACIENTE |
-| `ana.munoz@mail.cl` | PACIENTE |
-| `luis.perez@mail.cl` | PACIENTE |
+| Correo | Rol | Descripción |
+|---|---|---|
+| `admin@chawal.cl` | `ADMINISTRADOR` | Administrador general (Acceso Portal Web & API) |
+| `camila.rojas@chawal.cl` | `TERAPEUTA` | Kinesióloga |
+| `matias.fuentes@chawal.cl` | `TERAPEUTA` | Fonoaudiólogo |
+| `valentina.soto@chawal.cl` | `TERAPEUTA` | Psicóloga |
+| `pedro.gonzalez@mail.cl` | `PACIENTE` | Paciente usuario final |
 
 ---
 
-## 🚀 Backend — API REST
+### 2. Backend — API REST (Express)
 
-El backend proporciona endpoints de autenticación JWT y gestión de recursos.
-
-### Configuración e inicio
-
-1. Copiar `.env.example` a `.env` en la carpeta `backend/`:
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
-2. Instalar dependencias e iniciar servidor:
+1. Ingresar a la carpeta backend:
    ```bash
    cd backend
+   ```
+2. Crear archivo `.env` a partir de `.env.example`:
+   ```bash
+   cp .env.example .env
+   ```
+   *Asegúrate de ajustar `DB_PASS` en `.env` con la contraseña real de tu usuario MySQL `root`.*
+3. Instalar dependencias e iniciar el servidor en modo desarrollo:
+   ```bash
    npm install
    npm run dev
    ```
-
-### Endpoints principales
-- `GET /api/health`: Health check del backend.
-- `POST /api/auth/login`: Autenticación con credenciales y emisión de JWT (8h).
-- `GET /api/terapeutas`, `POST /api/terapeutas`, `PUT /api/terapeutas/:id`: CRUD Terapeutas (US-13).
-- `GET /api/especialidades`: Catálogo de especialidades clínicas.
-
-### Pruebas backend
-```bash
-cd backend
-node test-login.js       # Prueba los 6 escenarios del login
-node test-terapeutas.js  # Prueba 21 verificaciones de la US-13
-```
+   > El servidor estará corriendo en: `http://localhost:3000` (Healthcheck: `http://localhost:3000/api/health`).
 
 ---
 
-## 📱 Mobile — App Móvil (US-02)
+### 3. Web — Portal Web Administrativo (React + Vite)
 
-Aplicación móvil desarrollada con **React Native + Expo SDK 57** aplicando el sistema de diseño Chawal (Verde Teal `#1B7B75`, Naranja acento `#E08736`, tipografía y bordes redondeados).
+1. Abrir una nueva terminal e ingresar a la carpeta `web/`:
+   ```bash
+   cd web
+   npm install
+   ```
+2. Iniciar el servidor de desarrollo Vite:
+   ```bash
+   npm run dev
+   ```
+   > El portal web estará corriendo en: `http://localhost:5173/`
 
-### Requisitos
-- Node.js `20.19.4`
-- Expo Go en dispositivo móvil o emulador (Android Studio / iOS Simulator / Web)
+3. **Ejecutar Pruebas Unitarias Web**:
+   ```bash
+   npm test
+   ```
 
-### Puesta en marcha
+---
 
-1. Ir al directorio móvil:
+### 4. Mobile — Aplicación Móvil (React Native + Expo)
+
+1. Abrir una nueva terminal e ingresar a la carpeta `mobile/`:
    ```bash
    cd mobile
    npm install
    ```
-2. Iniciar el servidor de desarrollo Expo:
+2. Iniciar la aplicación en Expo:
    ```bash
    npm start
-   # O para plataformas específicas:
-   npm run web
-   npm run android
-   npm run ios
    ```
+3. **Probar en dispositivo o emulador**:
+   - **Dispositivo Físico**: Escanea el código QR con la app **Expo Go** (detectará automáticamente la IP local de tu computador para conectarse al backend).
+   - **Web Browser**: Presiona la tecla `w` en la terminal o ejecuta `npm run web`.
+   - **Emulador Android / iOS**: Presiona `a` para Android o `i` para iOS.
 
-### Variables de entorno (`mobile/.env`)
-Opcionalmente, crea `mobile/.env` para sobrescribir la dirección del backend:
-```env
-EXPO_PUBLIC_API_URL=http://localhost:3000/api
-# En emulador Android usar: http://10.0.2.2:3000/api
-```
+4. **Ejecutar Pruebas Unitarias Mobile**:
+   ```bash
+   npm test
+   ```
 
 ---
 
-## 📄 Documentaciones Específicas
-- **Mobile Login Plan & Plan QA**: [`mobile/US-02-LOGIN-PLAN.md`](mobile/US-02-LOGIN-PLAN.md)
-- **Contrato Auth Login**: [`Documentation/contrato-auth-login.json`](Documentation/contrato-auth-login.json)
-- **Contrato CRUD Terapeutas**: `backend/contrato-us13-terapeutas.md`
+## Resumen de Comandos de Prueba
+
+| Módulo | Comando de Ejecución | Descripción |
+|---|---|---|
+| **Backend** | `node test-login.js` | Ejecuta las 6 pruebas de integración del endpoint de login. |
+| **Backend** | `node test-terapeutas.js` | Ejecuta las 21 pruebas del CRUD de Terapeutas (US-13). |
+| **Web** | `cd web && npm test` | Ejecuta 11 pruebas unitarias con Vitest (servicios, AuthContext, ProtectedRoute). |
+| **Mobile** | `cd mobile && npm test` | Ejecuta 11 pruebas unitarias con Jest (storageService, authService, AuthContext). |
