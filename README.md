@@ -3,58 +3,6 @@ Sistema de Agendamiento, Pagos y Contenido (S.A.P.C. Chawal)
 
 ---
 
-## Estructura del Repositorio (`SAPC-Chawal-App`)
-
-```text
-SAPC-Chawal-App/
-├── .gitignore
-├── .env.example
-├── README.md
-├── Documentation/            # Documentación general y diagramas del sistema
-│
-├── backend/                  # API REST (Node.js + Express + MySQL 8.0)
-│   ├── .env.example
-│   ├── server.js             # Punto de entrada de la API REST (Puerto 3000)
-│   ├── test-login.js         # Pruebas automatizadas de autenticación
-│   ├── test-terapeutas.js    # Pruebas automatizadas de CRUD terapeutas
-│   ├── src/
-│   │   ├── config/           # Conexión DB MySQL, variables JWT
-│   │   ├── controllers/      # Lógica de endpoints (auth, terapeutas, especialidades)
-│   │   ├── middlewares/      # verifyToken, requireRole (RBAC)
-│   │   ├── routes/           # Enrutadores Express (/api/auth, /api/terapeutas, /api/especialidades)
-│   │   └── utils/            # Helpers
-│   └── db/                   # Scripts SQL del sistema
-│       ├── schema.sql        # DDL: Definición de tablas en MySQL (17 tablas)
-│       └── seed.sql          # DML: Datos iniciales de prueba (Credenciales oficiales)
-│
-├── mobile/                   # App Móvil (React Native / Expo SDK 57)
-│   ├── .env.example
-│   ├── US-02-LOGIN-PLAN.md   # Especificación visual, estado de tareas y Plan de Pruebas QA
-│   ├── App.js                # Enrutamiento condicional y AuthProvider
-│   ├── __tests__/            # Pruebas unitarias Jest (authService, storageService, AuthContext)
-│   └── src/
-│       ├── components/       # UI (CustomInput, CustomButton, AuthErrorModal, LogoChawal)
-│       ├── context/          # AuthContext (Estado de sesión global y auto-login)
-│       ├── screens/          # Pantallas (LoginScreen, HomeScreen)
-│       ├── services/         # authService (Detección IP de host Expo) y storageService (SecureStore JWT)
-│       └── theme/            # Tokens de diseño Chawal (Verde Teal #1B7B75, Naranja #E08736)
-│
-└── web/                      # Portal Web Administrativo (React 19 + Vite + Vitest)
-    ├── US-04-WEB-ROUTING-PLAN.md # Plan de navegación, rutas protegidas y guía QA
-    ├── vite.config.js        # Configuración de Vite y Vitest (jsdom)
-    ├── src/
-    │   ├── __tests__/        # Pruebas unitarias Vitest (authService, AuthContext, ProtectedRoute)
-    │   ├── assets/           # Logos e imágenes vectoriales
-    │   ├── components/       # Layout (Sidebar, AdminLayout) y UI común (Button, Input)
-    │   ├── context/          # AuthContext (Persistencia localStorage y RBAC)
-    │   ├── pages/            # Vistas (LoginPage, DashboardPage, PlaceholderPage)
-    │   ├── routes/           # AppRoutes y ProtectedRoute (Guardián de rutas)
-    │   ├── services/         # authService (REST Client HTTP)
-    │   └── styles/           # Tokens de diseño y estilos globales CSS
-```
-
----
-
 ## Guía de Inicio Rápido (Puesta en Marcha)
 
 Para levantar la solución completa en tu máquina local, sigue este orden:
