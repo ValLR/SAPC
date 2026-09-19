@@ -1,0 +1,60 @@
+/* ==========================================================================
+   Design System Tokens - Centro Chawal Portal Web Administrativo
+   ========================================================================== */
+
+:root {
+  /* 🎨 Identidad & Paleta de Colores Chawal */
+  --color-primary: #1B7B75;          /* Verde azulado institucional (Sidebar, Botones) */
+  --color-primary-dark: #155E59;     /* Verde oscuro para hovers y pressed */
+  --color-primary-light: #E6F4F3;    /* Fondo tenue institucional */
+  --color-secondary: #E08736;        /* Naranja cálido (Highlights & Acciones secundarias) */
+  --color-secondary-dark: #C77022;   /* Naranja oscuro hover */
+  --color-secondary-light: #FFF6ED;  /* Fondo tenue naranja */
+
+  /* 🏢 Neutros & Superficie */
+  --color-bg-app: #F8F9FA;           /* Fondo general de la aplicación */
+  --color-surface: #FFFFFF;          /* Fondo de tarjetas, tablas y modales */
+  --color-border: #E2E8F0;           /* Bordes de inputs, tablas y divisores */
+  --color-border-hover: #CBD5E1;     /* Borde al hacer hover */
+  --color-disabled: #CBD5E1;         /* Fondo gris inactivo/deshabilitado */
+  --color-disabled-text: #FFFFFF;    /* Texto sobre elemento deshabilitado */
+
+  /* 📝 Tipografía & Textos */
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-text-primary: #2D3748;     /* Texto principal oscuro */
+  --color-text-secondary: #718096;   /* Texto secundario y etiquetas */
+  --color-text-placeholder: #A0AEC0; /* Texto placeholder en inputs */
+  --color-text-inverse: #FFFFFF;     /* Texto sobre superficies oscuras/verdes */
+  --color-text-disabled: #94A3B8;    /* Texto inactivo */
+
+  /* 🚨 Estados Semánticos */
+  --color-error: #EF4444;            /* Rojo para errores en inputs y alertas */
+  --color-error-dark: #DC2626;
+  --color-error-bg: #FEF2F2;
+  --color-success: #10B981;          /* Verde éxito / Citas confirmadas */
+  --color-success-bg: #ECFDF5;
+  --color-warning: #F59E0B;          /* Advertencia */
+  --color-warning-bg: #FFFBEB;
+
+  /* 📏 Dimensiones & Layout */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+
+  /* 📐 Radios de Borde (Border Radius) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* 🌑 Sombras (Box Shadows) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 2px 8px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-dropdown: 0 4px 16px 0 rgba(0, 0, 0, 0.1);
+  --shadow-modal: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* ⚡ Transiciones */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}

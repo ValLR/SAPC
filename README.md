@@ -1,5 +1,7 @@
 # SAPC - Chawal App
-Sistema de Agendamiento, Pagos y Contenido
+Sistema de Agendamiento, Pagos y Contenido (S.A.P.C. Chawal)
+
+---
 
 ## 📂 Estructura del Repositorio (`SAPC-Chawal-App`)
 
@@ -8,40 +10,40 @@ SAPC-Chawal-App/
 ├── .gitignore
 ├── .env.example
 ├── README.md
-├── Documentation/            # Documentación general del proyecto
+├── Documentation/            # Documentación general y contratos API
 │
 ├── backend/                  # API REST (Node.js + Express)
 │   ├── .env.example
 │   ├── server.js             # Punto de entrada de la API
+│   ├── test-login.js         # Pruebas automatizadas de autenticación
+│   ├── test-terapeutas.js    # Pruebas automatizadas de CRUD terapeutas
 │   ├── src/
 │   │   ├── config/           # Conexión DB, variables JWT
-│   │   ├── controllers/      # Lógica de endpoints
-│   │   ├── middlewares/      # verifyToken, checkRole (RBAC)
-│   │   ├── routes/           # Enrutadores Express (/api/auth, /api/citas...)
-│   │   └── utils/            # Funciones auxiliares / helpers
+│   │   ├── controllers/      # Lógica de endpoints (auth, terapeutas, especialidades)
+│   │   ├── middlewares/      # verifyToken, requireRole (RBAC)
+│   │   ├── routes/           # Enrutadores Express (/api/auth, /api/terapeutas, /api/especialidades)
+│   │   └── utils/            # Helpers
 │   └── db/                   # Scripts SQL del sistema
-│       ├── schema.sql        # DDL: Definición de tablas en MySQL
-│       ├── seed.sql          # DML: Datos iniciales de prueba
-│       ├── stored_procedures/# SPs (ej. SP_reservar_cita_sin_colision)
-│       └── triggers/         # Triggers
+│       ├── schema.sql        # DDL: Definición de tablas en MySQL (17 tablas)
+│       └── seed.sql          # DML: Datos iniciales de prueba
 │
-├── mobile/                   # App Móvil Android (React Native / Expo)
+├── mobile/                   # App Móvil (React Native / Expo SDK 57)
 │   ├── .env.example
+│   ├── US-02-LOGIN-PLAN.md   # Especificación visual, estado de tareas y Plan de Pruebas QA
+│   ├── App.js                # Enrutamiento condicional y AuthProvider
 │   └── src/
-│       ├── components/       # Componentes reutilizables
-│       ├── screens/          # Pantallas de la aplicación
-│       ├── navigation/       # React Navigation
-│       ├── services/         # Cliente API REST
-│       └── context/          # Contexto de Autenticación
+│       ├── components/       # UI (CustomInput, CustomButton, AuthErrorModal, LogoChawal)
+│       ├── context/          # AuthContext (Estado de sesión global y auto-login)
+│       ├── screens/          # Pantallas (LoginScreen, HomeScreen)
+│       ├── services/         # authService (HTTP client REST) y storageService (SecureStore JWT)
+│       └── theme/            # Tokens de diseño Chawal (Colores Teal #1B7B75, Naranja #E08736, etc.)
 │
 └── web/                      # Portal Web Administrativo (React)
     ├── .env.example
-    └── src/
-        ├── components/       # Componentes UI
-        ├── pages/            # Páginas administrativas
-        ├── routes/           # Rutas protegidas
-        └── services/         # Cliente API REST
+    └── US-04-WEB-ROUTING-PLAN.md
 ```
+
+---
 
 ## 🗄️ Base de Datos (MySQL 8.0)
 
@@ -62,8 +64,7 @@ mysql -u root -p chawal_db < backend/db/schema.sql
 mysql -u root -p chawal_db < backend/db/seed.sql
 ```
 
-> También se pueden ejecutar ambos scripts desde MySQL Workbench
-> (`File → Open SQL Script`), seleccionando la BD `chawal_db`.
+> También se pueden ejecutar ambos scripts desde MySQL Workbench (`File → Open SQL Script`), seleccionando la BD `chawal_db`.
 
 ### Contenido del esquema
 - **17 tablas** (identidad, dominio, operación, finanzas y soporte)
@@ -84,32 +85,74 @@ Todos los usuarios del seed comparten la contraseña **`Password2026!`**.
 | `ana.munoz@mail.cl` | PACIENTE |
 | `luis.perez@mail.cl` | PACIENTE |
 
-## 🔐 Autenticación (US-01 / SCRUM-9)
+---
 
-El endpoint `POST /api/auth/login` valida credenciales contra MySQL
-(`bcrypt.compare`) y devuelve un JWT.
+## 🚀 Backend — API REST
 
-- **Contrato OpenAPI:** [`Documentation/contrato-auth-login.json`](Documentation/contrato-auth-login.json)
-- **Códigos de respuesta:** `200`, `400` (`MISSING_CREDENTIALS`),
-  `401` (`INVALID_CREDENTIALS`), `403` (`ACCOUNT_NOT_ACTIVE`), `500`
+El backend proporciona endpoints de autenticación JWT y gestión de recursos.
 
-### Configuración
-Copiar `backend/.env.example` a `backend/.env` y completar `DB_PASS`:
+### Configuración e inicio
 
+1. Copiar `.env.example` a `.env` en la carpeta `backend/`:
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+2. Instalar dependencias e iniciar servidor:
+   ```bash
+   cd backend
+   npm install
+   npm run dev
+   ```
+
+### Endpoints principales
+- `GET /api/health`: Health check del backend.
+- `POST /api/auth/login`: Autenticación con credenciales y emisión de JWT (8h).
+- `GET /api/terapeutas`, `POST /api/terapeutas`, `PUT /api/terapeutas/:id`: CRUD Terapeutas (US-13).
+- `GET /api/especialidades`: Catálogo de especialidades clínicas.
+
+### Pruebas backend
 ```bash
-cp backend/.env.example backend/.env
-```
-
-```bash
-# Arrancar la API
 cd backend
-npm install
-npm run dev
+node test-login.js       # Prueba los 6 escenarios del login
+node test-terapeutas.js  # Prueba 21 verificaciones de la US-13
 ```
 
-### Prueba rápida
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@chawal.cl","password":"Password2026!"}'
+---
+
+## 📱 Mobile — App Móvil (US-02)
+
+Aplicación móvil desarrollada con **React Native + Expo SDK 57** aplicando el sistema de diseño Chawal (Verde Teal `#1B7B75`, Naranja acento `#E08736`, tipografía y bordes redondeados).
+
+### Requisitos
+- Node.js `20.19.4`
+- Expo Go en dispositivo móvil o emulador (Android Studio / iOS Simulator / Web)
+
+### Puesta en marcha
+
+1. Ir al directorio móvil:
+   ```bash
+   cd mobile
+   npm install
+   ```
+2. Iniciar el servidor de desarrollo Expo:
+   ```bash
+   npm start
+   # O para plataformas específicas:
+   npm run web
+   npm run android
+   npm run ios
+   ```
+
+### Variables de entorno (`mobile/.env`)
+Opcionalmente, crea `mobile/.env` para sobrescribir la dirección del backend:
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3000/api
+# En emulador Android usar: http://10.0.2.2:3000/api
 ```
+
+---
+
+## 📄 Documentaciones Específicas
+- **Mobile Login Plan & Plan QA**: [`mobile/US-02-LOGIN-PLAN.md`](mobile/US-02-LOGIN-PLAN.md)
+- **Contrato Auth Login**: [`Documentation/contrato-auth-login.json`](Documentation/contrato-auth-login.json)
+- **Contrato CRUD Terapeutas**: `backend/contrato-us13-terapeutas.md`
