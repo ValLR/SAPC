@@ -13,7 +13,7 @@ function Navigation() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.primary.default} />
+        <ActivityIndicator size="large" color={colors.primary.main} />
       </View>
     );
   }

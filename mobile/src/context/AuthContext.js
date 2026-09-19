@@ -7,9 +7,9 @@ const AuthContext = createContext({
   token: null,
   isLoading: true,
   error: null,
-  login: async () => { },
-  logout: async () => { },
-  clearError: () => { },
+  login: async () => {},
+  logout: async () => {},
+  clearError: () => {},
 });
 
 /**
@@ -20,7 +20,7 @@ const AuthContext = createContext({
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Solo para la verificación inicial al arrancar
   const [error, setError] = useState(null);
 
   // Auto-login al montar el componente (Verifica JWT guardado)
@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }) => {
    * @returns {Promise<{success: boolean, message?: string, error?: string}>}
    */
   const login = async (email, password) => {
-    setIsLoading(true);
     setError(null);
 
     const result = await authService.login(email, password);
@@ -65,11 +64,9 @@ export const AuthProvider = ({ children }) => {
       await storageService.saveToken(result.token);
       await storageService.saveUser(result.user);
 
-      setIsLoading(false);
       return { success: true, message: result.message };
     } else {
       setError(result.message);
-      setIsLoading(false);
       return {
         success: false,
         error: result.error,
@@ -82,12 +79,10 @@ export const AuthProvider = ({ children }) => {
    * Logout
    */
   const logout = async () => {
-    setIsLoading(true);
     await storageService.clearSession();
     setUser(null);
     setToken(null);
     setError(null);
-    setIsLoading(false);
   };
 
   const clearError = () => {

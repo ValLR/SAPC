@@ -22,10 +22,11 @@ import { useAuth } from '../context/AuthContext';
  * @param {Function} [props.onLoginSuccess] - Callback opcional al iniciar sesión con éxito
  */
 export const LoginScreen = ({ onLoginSuccess }) => {
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -84,18 +85,29 @@ export const LoginScreen = ({ onLoginSuccess }) => {
       return;
     }
 
-    const result = await login(email, password);
+    setIsSubmitting(true);
+    try {
+      const result = await login(email, password);
 
-    if (result.success) {
-      if (onLoginSuccess) {
-        onLoginSuccess(result.user);
+      if (result && result.success) {
+        if (onLoginSuccess) {
+          onLoginSuccess(result.user);
+        }
+      } else {
+        setModalMessage(
+          (result && result.message) ||
+            'El correo o la contraseña ingresada no son correctos. Por favor, verifica tus datos e inténtalo nuevamente.'
+        );
+        setShowErrorModal(true);
       }
-    } else {
+    } catch (err) {
+      console.error('Error durante handleLogin:', err);
       setModalMessage(
-        result.message ||
-          'El correo o la contraseña ingresada no son correctos. Por favor, verifica tus datos e inténtalo nuevamente.'
+        'El correo o la contraseña ingresada no son correctos. Por favor, verifica tus datos e inténtalo nuevamente.'
       );
       setShowErrorModal(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -139,8 +151,8 @@ export const LoginScreen = ({ onLoginSuccess }) => {
               <CustomButton
                 title="Ingresa"
                 onPress={handleLogin}
-                disabled={!isFormValid}
-                loading={isLoading}
+                disabled={!isFormValid || isSubmitting}
+                loading={isSubmitting}
                 style={styles.loginButton}
               />
             </View>

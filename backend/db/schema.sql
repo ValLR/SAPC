@@ -577,7 +577,7 @@ JOIN    roles    r ON r.id_rol = u.id_rol;
 -- =====================================================================
 DROP PROCEDURE IF EXISTS sp_agendar_cita;
 
-DELIMITER $$
+DELIMITER //
 
 CREATE PROCEDURE sp_agendar_cita (
     IN  p_id_paciente    INT UNSIGNED,
@@ -600,12 +600,12 @@ BEGIN
     DECLARE v_servicio_ok  TINYINT DEFAULT 0;
     DECLARE v_prof_ok      TINYINT DEFAULT 0;
 
-    -- Rollback atómico ante cualquier excepción
+    -- Rollback atomico ante cualquier excepcion
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         SET p_id_cita = NULL;
-        SET p_mensaje = 'ERROR: transacción revertida (ROLLBACK)';
+        SET p_mensaje = 'ERROR: transaccion revertida (ROLLBACK)';
         RESIGNAL;
     END;
 
@@ -613,10 +613,7 @@ BEGIN
 
     START TRANSACTION;
 
-    -- 1) Validar servicio activo y obtener duración
-    --    Nota MySQL: si el SELECT ... INTO no devuelve filas, la variable
-    --    conserva su valor SIN CAMBIAR (warning 1329), por eso el DEFAULT 0
-    --    actúa como centinela y se compara con = 0.
+    -- 1) Validar servicio activo y obtener duracion
     SELECT duracion_min, 1
       INTO v_duracion, v_servicio_ok
       FROM servicios
@@ -639,7 +636,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Profesional inexistente o inactivo';
     END IF;
 
-    -- 3) Bloquear el bloque horario y leer su aforo dinámico
+    -- 3) Bloquear el bloque horario y leer su aforo dinamico
     SELECT aforo_maximo, hora_inicio, hora_fin, dia_semana
       INTO v_aforo, v_bloque_ini, v_bloque_fin, v_dia_bloque
       FROM bloques_horarios
@@ -648,34 +645,29 @@ BEGIN
        AND activo = 1
      FOR UPDATE;
 
-    -- Si el bloque no existe, v_aforo conserva su DEFAULT 0 (aforo_maximo
-    -- tiene CHECK >= 1, por lo que un valor real nunca es 0).
     IF v_aforo = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Bloque horario inválido para el profesional';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Bloque horario invalido para el profesional';
     END IF;
 
     -- 3.1) La hora solicitada debe caer dentro del rango del bloque
     IF p_hora_inicio < v_bloque_ini OR p_hora_inicio >= v_bloque_fin THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La hora solicitada está fuera del rango del bloque';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La hora solicitada esta fuera del rango del bloque';
     END IF;
 
-    -- 3.2) La fecha debe corresponder al día de semana del bloque (ISO 1-7)
+    -- 3.2) La fecha debe corresponder al dia de semana del bloque (ISO 1-7)
     IF (WEEKDAY(p_fecha) + 1) <> v_dia_bloque THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La fecha no corresponde al día de la semana del bloque';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La fecha no corresponde al dia de la semana del bloque';
     END IF;
 
-    -- 4) Calcular hora de término
+    -- 4) Calcular hora de termino
     SET v_hora_fin = ADDTIME(p_hora_inicio, SEC_TO_TIME(v_duracion * 60));
 
-    -- 4.1) La cita no puede exceder el término del bloque
+    -- 4.1) La cita no puede exceder el termino del bloque
     IF v_hora_fin > v_bloque_fin THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duración del servicio excede el bloque horario';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duracion del servicio excede el bloque horario';
     END IF;
 
-    -- 5) Contar citas vigentes del MISMO slot (bloque + fecha + hora).
-    --    El aforo se evalúa por franja horaria, no por bloque/día completo:
-    --    así un bloque de 4h con aforo 1 admite varias citas secuenciales,
-    --    y un bloque grupal con aforo 3 admite 3 citas a la MISMA hora.
+    -- 5) Contar citas vigentes del MISMO slot
     SELECT COUNT(*)
       INTO v_ocupados
       FROM citas
@@ -685,13 +677,10 @@ BEGIN
        AND estado NOT IN ('CANCELADA','NO_ASISTIO');
 
     IF v_ocupados >= v_aforo THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Aforo máximo alcanzado para el bloque';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Aforo maximo alcanzado para el bloque';
     END IF;
 
-    -- 6) Insertar la cita. es_grupal NO se envía: el trigger
-    --    trg_citas_bi_validacion lo deriva del aforo del bloque y, además,
-    --    revalida coherencia bloque/profesional, día de semana, rango y
-    --    solapamiento. El índice uq_citas_slot protege los slots individuales.
+    -- 6) Insertar la cita
     INSERT INTO citas (
         id_paciente, id_profesional, id_servicio, id_bloque,
         fecha_cita, hora_inicio, hora_fin, estado
@@ -704,7 +693,7 @@ BEGIN
     SET p_mensaje = CONCAT('Cita agendada correctamente. ID=', p_id_cita);
 
     COMMIT;
-END$$
+END //
 
 DELIMITER ;
 
@@ -722,7 +711,7 @@ DROP TRIGGER IF EXISTS trg_control_aforo_clases;
 DROP TRIGGER IF EXISTS trg_citas_bi_aforo;
 DROP TRIGGER IF EXISTS trg_citas_bu_aforo;
 
-DELIMITER $$
+DELIMITER //
 
 -- 20.1 BEFORE INSERT: coherencia bloque/día/rango + aforo + solapamiento
 CREATE TRIGGER trg_citas_bi_validacion
@@ -807,7 +796,7 @@ BEGIN
             END IF;
         END IF;
     END IF;
-END$$
+END //
 
 -- 20.2 BEFORE UPDATE: mismas validaciones al mover o reactivar una cita
 CREATE TRIGGER trg_citas_bu_validacion
@@ -883,7 +872,7 @@ BEGIN
             END IF;
         END IF;
     END IF;
-END$$
+END //
 
 -- 20.3 AFTER INSERT: registra el evento en auditoría
 CREATE TRIGGER trg_citas_ai_auditoria
@@ -905,7 +894,7 @@ BEGIN
             'estado',         NEW.estado
         )
     );
-END$$
+END //
 
 -- 20.4 [R15] BEFORE INSERT en reservas_clases: control de aforo + decremento
 --      atómico de cupos. Si no hay cupo, aborta con SIGNAL SQLSTATE '45000'.
@@ -932,7 +921,7 @@ BEGIN
     UPDATE clases_grupales
        SET cupos_disponibles = cupos_disponibles - 1
      WHERE id_clase = NEW.id_clase;
-END$$
+END //
 
 DELIMITER ;
 
