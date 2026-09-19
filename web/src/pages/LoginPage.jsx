@@ -8,22 +8,22 @@ import './LoginPage.css';
 
 /**
  * Pantalla de Acceso Administrativo Privado (LoginPage.jsx)
- * Réplica exacta de la Imagen 1 de los Wireframes (Estados: Normal, Cargando, Error).
+ * Conectada al backend REST de SAPC Chawal.
  */
 export const LoginPage = () => {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, authError, clearError } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState('Administrador');
 
   // Estados de validación de error
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [formErrorMessage, setFormErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Si ya está autenticado, redirigir al Dashboard
+  // Redirigir al Dashboard si ya hay sesión iniciada
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
@@ -40,12 +40,16 @@ export const LoginPage = () => {
   const handleEmailChange = (e) => {
     const val = e.target.value;
     setEmail(val);
+    setFormErrorMessage('');
+    if (clearError) clearError();
     if (emailError) setEmailError(validateEmail(val));
   };
 
   const handlePasswordChange = (e) => {
     const val = e.target.value;
     setPassword(val);
+    setFormErrorMessage('');
+    if (clearError) clearError();
     if (passwordError) setPasswordError(val.trim() ? '' : 'Campo requerido');
   };
 
@@ -63,6 +67,7 @@ export const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormErrorMessage('');
     const errMail = validateEmail(email);
     const errPass = password.trim() ? '' : 'Campo requerido';
 
@@ -75,22 +80,18 @@ export const LoginPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Simulación de delay de red (2. Pantalla 1.2: Cargando)
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const res = await login(email, password);
 
-      // Simulación de error de prueba si escribe "error"
-      if (password.toLowerCase() === 'error') {
+      if (res.success) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        setFormErrorMessage(res.message || 'Credenciales no válidas');
         setEmailError('El correo o la contraseña ingresada no son correctos.');
         setPasswordError('Verifica tus credenciales');
-        setIsSubmitting(false);
-        return;
       }
-
-      await login(email, password, selectedRole);
-      navigate('/dashboard', { replace: true });
     } catch (err) {
-      console.error(err);
-      setEmailError('Error al iniciar sesión');
+      console.error('Error al enviar formulario de login:', err);
+      setFormErrorMessage('Error inesperado al intentar conectar con el servidor.');
     } finally {
       setIsSubmitting(false);
     }
@@ -106,6 +107,13 @@ export const LoginPage = () => {
 
         {/* Título de la vista */}
         <h1 className="login-title">Acceso Administrativo Privado</h1>
+
+        {/* Mensaje de Error General si Backend Retorna Error */}
+        {(formErrorMessage || authError) && (
+          <div className="login-error-banner" role="alert">
+            {formErrorMessage || authError}
+          </div>
+        )}
 
         {/* Formulario de Login */}
         <form onSubmit={handleSubmit} className="login-form">
@@ -131,32 +139,11 @@ export const LoginPage = () => {
             autoComplete="current-password"
           />
 
-          {/* Selector Mock de Rol para probar Wireframe 2 (Admin) y Wireframe 3 (Terapeuta) */}
-          <div className="login-role-selector">
-            <span className="login-role-label">Simular Rol:</span>
-            <div className="login-role-buttons">
-              <button
-                type="button"
-                className={`role-chip ${selectedRole === 'Administrador' ? 'active-admin' : ''}`}
-                onClick={() => setSelectedRole('Administrador')}
-              >
-                Administrador (A)
-              </button>
-              <button
-                type="button"
-                className={`role-chip ${selectedRole === 'Terapeuta' ? 'active-terapeuta' : ''}`}
-                onClick={() => setSelectedRole('Terapeuta')}
-              >
-                Terapeuta (T)
-              </button>
-            </div>
-          </div>
-
           {/* Botón de Ingreso */}
           <Button
             type="submit"
             variant="primary"
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
             loading={isSubmitting}
             className="login-submit-btn"
           >

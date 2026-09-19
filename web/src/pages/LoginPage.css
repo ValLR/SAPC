@@ -45,51 +45,6 @@
   width: 100%;
 }
 
-.login-role-selector {
-  margin-bottom: 20px;
-  padding: 12px;
-  background-color: var(--color-primary-light);
-  border-radius: var(--radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.login-role-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary-dark);
-}
-
-.login-role-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.role-chip {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--color-border);
-  background-color: #ffffff;
-  color: var(--color-text-secondary);
-  transition: all var(--transition-fast);
-}
-
-.role-chip.active-admin {
-  background-color: var(--color-secondary);
-  color: #ffffff;
-  border-color: var(--color-secondary-dark);
-}
-
-.role-chip.active-terapeuta {
-  background-color: #3B82F6;
-  color: #ffffff;
-  border-color: #2563EB;
-}
-
 .login-submit-btn {
   margin-top: 8px;
 }
