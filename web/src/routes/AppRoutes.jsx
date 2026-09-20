@@ -4,6 +4,7 @@ import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from '../components/layout/AdminLayout';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
+import ProfesionalesPage from '../pages/ProfesionalesPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
 
 /**
@@ -20,17 +21,7 @@ export const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-
-            <Route
-              path="/profesionales"
-              element={
-                <PlaceholderPage
-                  code="US-14"
-                  title="Mantenedor de Profesionales y Terapeutas"
-                  description="Módulo para gestión CRUD de datos personales, especialidades y acreditaciones de terapeutas del centro."
-                />
-              }
-            />
+            <Route path="/profesionales" element={<ProfesionalesPage />} />
 
             <Route
               path="/agendas"
