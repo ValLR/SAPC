@@ -166,16 +166,19 @@ INSERT INTO citas
 --      decrementa el trigger trg_control_aforo_clases al inscribirse)
 -- =====================================================================
 INSERT INTO clases_grupales
-    (id_clase, nombre_actividad, descripcion, id_instructor, aforo_maximo, cupos_disponibles,
+    (id_clase, nombre_actividad, descripcion, sala, id_instructor, aforo_maximo, cupos_disponibles,
      fecha_clase, hora_inicio, hora_fin, estado_clase) VALUES
     (1, 'Taller de Rehabilitación Funcional',
         'Taller grupal de terapia ocupacional para recuperación motora.',
+        'Sala 1 - Kinesiología',
         1, 3, 3, '2026-10-17', '10:00:00', '11:00:00', 'PROGRAMADA'),
     (2, 'Taller de Estimulación Cognitiva',
         'Sesión grupal de estimulación cognitiva para adultos mayores.',
+        'Sala 2 - Terapia',
         3, 5, 5, '2026-10-24', '15:00:00', '16:00:00', 'PROGRAMADA'),
     (3, 'Taller de Higiene Postural',
         'Taller grupal de kinesiología sobre cuidado de la columna.',
+        'Sala 1 - Kinesiología',
         1, 2, 2, '2026-11-07', '10:00:00', '11:00:00', 'PROGRAMADA');
 
 -- =====================================================================
@@ -308,7 +311,7 @@ SELECT '=== PAGOS (XOR cita | reserva) ===' AS seccion;
 SELECT id_pago, id_cita, id_reserva_clase, monto, metodo_pago, estado_pago FROM pagos;
 
 SELECT '=== CLASES GRUPALES (cupos tras reservas) ===' AS seccion;
-SELECT id_clase, nombre_actividad, aforo_maximo, cupos_disponibles,
+SELECT id_clase, nombre_actividad, sala, aforo_maximo, cupos_disponibles,
        (aforo_maximo - cupos_disponibles) AS inscritos, estado_clase
 FROM   clases_grupales
 ORDER BY id_clase;

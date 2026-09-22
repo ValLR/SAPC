@@ -24,6 +24,7 @@
 --   [R18] novedades (contenido institucional)
 --   [R19] US-13: campo titulo_profesional + estado_disponibilidad operativa
 --         (distinta de `activo`, que sigue siendo el soft-delete)
+--   [R20] US-11: campo sala en clases_grupales (ubicación física del taller)
 -- =====================================================================
 
 SET NAMES utf8mb4;
@@ -355,6 +356,9 @@ CREATE TABLE clases_grupales (
     id_clase          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
     nombre_actividad  VARCHAR(100)     NOT NULL,
     descripcion       TEXT             NULL,
+    -- [R20] Ubicación física donde se dicta el taller (US-11).
+    --       Nullable: un taller puede no tener sala asignada aún.
+    sala              VARCHAR(60)      NULL COMMENT '[R20] Sala o ubicación física del taller',
     id_instructor     INT UNSIGNED     NOT NULL COMMENT 'Profesional que dicta la clase',
     aforo_maximo      INT UNSIGNED     NOT NULL COMMENT 'Cupos totales de la clase',
     cupos_disponibles INT UNSIGNED     NOT NULL COMMENT 'Cupos restantes (lo decrementa el trigger)',
@@ -367,6 +371,7 @@ CREATE TABLE clases_grupales (
     PRIMARY KEY (id_clase),
     KEY ix_clases_instructor_fecha (id_instructor, fecha_clase),
     KEY ix_clases_estado_fecha     (estado_clase, fecha_clase),
+    KEY ix_clases_sala_fecha       (sala, fecha_clase),
     CONSTRAINT fk_clases_instructor
         FOREIGN KEY (id_instructor) REFERENCES profesionales (id_profesional)
         ON DELETE RESTRICT ON UPDATE CASCADE,

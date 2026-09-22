@@ -6,6 +6,7 @@ const authRoutes = require('./src/routes/auth.routes');
 const terapeutasRoutes = require('./src/routes/terapeutas.routes');
 const especialidadesRoutes = require('./src/routes/especialidades.routes');
 const agendasRoutes = require('./src/routes/agendas.routes');
+const clasesRoutes = require('./src/routes/clases.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,9 @@ app.use('/api/especialidades', especialidadesRoutes);
 // Rutas de agendas / bloques horarios (US-07)
 app.use('/api/agendas', agendasRoutes);
 
+// Rutas de clases grupales / talleres (US-11)
+app.use('/api/clases', clasesRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
@@ -42,7 +46,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       terapeutas: '/api/terapeutas',
       especialidades: '/api/especialidades',
-      agendas: '/api/agendas'
+      agendas: '/api/agendas',
+      clases: '/api/clases'
     }
   });
 });
