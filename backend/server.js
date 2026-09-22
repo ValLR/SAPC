@@ -5,6 +5,7 @@ const cors = require('cors');
 const authRoutes = require('./src/routes/auth.routes');
 const terapeutasRoutes = require('./src/routes/terapeutas.routes');
 const especialidadesRoutes = require('./src/routes/especialidades.routes');
+const agendasRoutes = require('./src/routes/agendas.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/terapeutas', terapeutasRoutes);
 app.use('/api/especialidades', especialidadesRoutes);
 
+// Rutas de agendas / bloques horarios (US-07)
+app.use('/api/agendas', agendasRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
@@ -37,7 +41,8 @@ app.get('/', (req, res) => {
       health: '/api/health',
       auth: '/api/auth',
       terapeutas: '/api/terapeutas',
-      especialidades: '/api/especialidades'
+      especialidades: '/api/especialidades',
+      agendas: '/api/agendas'
     }
   });
 });
