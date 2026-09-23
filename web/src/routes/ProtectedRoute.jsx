@@ -3,8 +3,8 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
- * Guardián de Rutas Protegidas (Escenario 1)
- * Redirige forzosamente a /login si no existe una sesión activa.
+ * Guardián de Rutas Protegidas
+ * Redirige a /login si no existe una sesión activa.
  */
 export const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -19,7 +19,7 @@ export const ProtectedRoute = () => {
   }
 
   if (!isAuthenticated) {
-    // Escenario 1: Redirección forzosa al login del portal administrativo
+    // Redirección al login en caso de no estar autenticado
     return <Navigate to="/login" replace />;
   }
 

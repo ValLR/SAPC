@@ -28,7 +28,7 @@ describe('ProtectedRoute - Web Guard', () => {
     expect(screen.getByText('Cargando portal...')).toBeInTheDocument();
   });
 
-  it('redirige a /login cuando el usuario NO está autenticado (Escenario 1)', () => {
+  it('redirige a /login cuando el usuario NO está autenticado', () => {
     useAuth.mockReturnValue({
       isAuthenticated: false,
       isLoading: false,

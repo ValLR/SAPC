@@ -1,7 +1,6 @@
 // =====================================================================
 //  S.A.P.C. — CHAWAL  |  Rutas de Terapeutas
 //  Archivo: backend/src/routes/terapeutas.routes.js
-//  Historia: US-13 (SCRUM-21)
 // =====================================================================
 
 const express = require('express');
@@ -44,8 +43,7 @@ router.get('/info', (req, res) => {
       listar: 'GET /api/terapeutas',
       actualizar: 'PUT /api/terapeutas/:id_profesional'
     },
-    version: '1.0.0',
-    user_story: 'US-13 (SCRUM-21)'
+    version: '1.0.0'
   });
 });
 

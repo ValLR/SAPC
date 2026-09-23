@@ -1,7 +1,6 @@
 // =====================================================================
 //  S.A.P.C. — CHAWAL  |  Controlador de Terapeutas (CRUD)
 //  Archivo: backend/src/controllers/terapeutas.controller.js
-//  Historia: US-13 (SCRUM-21)
 // =====================================================================
 //  Abstrae la complejidad relacional: el frontend envía y recibe un
 //  único objeto plano, aunque la información viva en 4 tablas:

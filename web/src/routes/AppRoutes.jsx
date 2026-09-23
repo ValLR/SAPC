@@ -5,6 +5,7 @@ import AdminLayout from '../components/layout/AdminLayout';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProfesionalesPage from '../pages/ProfesionalesPage';
+import ScheduleConfigPage from '../pages/ScheduleConfigPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
 
 /**
@@ -17,22 +18,13 @@ export const AppRoutes = () => {
         {/* Ruta Pública: Login Privado Administrativo */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Rutas Protegidas por ProtectedRoute (Escenario 1) */}
+        {/* Rutas Protegidas por ProtectedRoute */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/profesionales" element={<ProfesionalesPage />} />
 
-            <Route
-              path="/agendas"
-              element={
-                <PlaceholderPage
-                  code="US-08"
-                  title="Agendas y Horarios"
-                  description="Módulo para configuración de jornadas laborales, bloques disponibles y asignación de pabellones/box de atención."
-                />
-              }
-            />
+            <Route path="/agendas" element={<ScheduleConfigPage />} />
 
             <Route
               path="/talleres"

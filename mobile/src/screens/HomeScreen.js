@@ -12,11 +12,11 @@ import CustomButton from '../components/CustomButton';
  * @param {Object} [props.user] - Datos del usuario autenticado
  * @param {Function} props.onLogout - Callback para cerrar sesión y retornar al Login
  */
-export const HomeScreen = ({ user, onLogout }) => {
+export const HomeScreen = ({ user, onLogout, onNavigateToClasses, onNavigateToAppointments }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <LogoChawal variant="full" size={160} style={styles.logo} />
+        <LogoChawal variant="full" size={140} style={styles.logo} />
 
         <View style={styles.card}>
           <Text style={styles.welcomeTitle}>¡Bienvenido(a)!</Text>
@@ -31,6 +31,21 @@ export const HomeScreen = ({ user, onLogout }) => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Sesión Activa</Text>
           </View>
+
+          {/* Action buttons for Mobile Features */}
+          <CustomButton
+            title="Talleres y Clases Grupales"
+            onPress={onNavigateToClasses}
+            variant="primary"
+            style={styles.actionButton}
+          />
+
+          <CustomButton
+            title="Reservar Cita Médica"
+            onPress={onNavigateToAppointments}
+            variant="secondary"
+            style={styles.actionButton}
+          />
 
           <CustomButton
             title="Cerrar Sesión"
@@ -104,6 +119,10 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     width: '100%',
+  },
+  actionButton: {
+    width: '100%',
+    marginBottom: 12,
   },
 });
 
