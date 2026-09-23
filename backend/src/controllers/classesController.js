@@ -92,7 +92,11 @@ const reserveClass = async (req, res) => {
     const currentClass = classRows[0];
 
     if (currentClass.cupos_disponibles <= 0) {
-      return res.status(409).json({
+      // US-09: el AC exige 400 Bad Request al rechazar por aforo agotado.
+      // Nota: 409 Conflict sería semánticamente equivalente (el conflicto
+      // es con el estado del recurso, no con la petición), pero el
+      // criterio de aceptación especifica 400 de forma explícita.
+      return res.status(400).json({
         success: false,
         message: 'La clase ya no cuenta con aforo disponible (Aforo Completo)',
         error: 'CLASS_FULL',
@@ -118,12 +122,11 @@ const reserveClass = async (req, res) => {
       data: updatedClass[0],
     });
   } catch (error) {
-    console.error('Error in reserveClass:', error);
-
     // El trigger trg_control_aforo_clases aborta con SIGNAL SQLSTATE '45000'
     // cuando la clase alcanza su aforo máximo.
+    // Se responde 400 por el AC de US-09 (ver nota en la validación previa).
     if (error.sqlState === '45000') {
-      return res.status(409).json({
+      return res.status(400).json({
         success: false,
         message: 'La clase alcanzó su límite de capacidad (Aforo Completo)',
         error: 'CLASS_FULL',
@@ -138,6 +141,11 @@ const reserveClass = async (req, res) => {
         error: 'ALREADY_RESERVED',
       });
     }
+
+    // Solo se registra lo que es un fallo real: los rechazos de negocio de
+    // arriba (aforo completo / duplicado) son resultados esperados y no
+    // deben ensuciar los logs con stack traces.
+    console.error('Error in reserveClass:', error);
 
     return res.status(500).json({
       success: false,

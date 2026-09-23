@@ -97,10 +97,14 @@ const req = async (metodo, ruta, body, token) => {
   const algunLleno = inscripciones.some((r) => r.data?.error === 'CLASS_FULL');
   const algunDuplicado = inscripciones.some((r) => r.data?.error === 'ALREADY_RESERVED');
   const algun500 = inscripciones.some((r) => r.status === 500);
+  const llenoResponde400 = inscripciones.some(
+    (r) => r.data?.error === 'CLASS_FULL' && r.status === 400
+  );
 
   check(!algun500, 'Ninguna inscripción devolvió 500', `statuses=${statuses.join(',')}`);
-  check(algunLleno || algunDuplicado, 'Inscripciones rebotadas con 409 (no 500)', `statuses=${statuses.join(',')}`);
+  check(algunLleno || algunDuplicado, 'Inscripciones rebotadas con error de negocio', `statuses=${statuses.join(',')}`);
   check(algunLleno, 'Detecta CLASS_FULL (sqlState 45000)', `statuses=${statuses.join(',')}`);
+  check(llenoResponde400, 'CLASS_FULL responde 400 (AC US-09)', `statuses=${statuses.join(',')}`);
 
   // --- 5. Reserva duplicada: UNIQUE uq_paciente_clase ---
   const dup = await req('POST', '/classes/1/reserve', null, tokensPac[0]);
