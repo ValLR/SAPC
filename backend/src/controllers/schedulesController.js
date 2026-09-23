@@ -108,35 +108,59 @@ const publishSchedule = async (req, res) => {
     const duration = Number(slot_duration) || 45;
     const selectedDays = Array.isArray(days) && days.length > 0 ? days : [1, 2, 3, 4, 5];
 
-    await pool.query(
-      `DELETE FROM bloques_horarios WHERE id_profesional = ? AND dia_semana IN (?)`,
-      [targetTherapistId, selectedDays]
-    );
-
+    // Se usa DESACTIVACIÓN en lugar de DELETE: la FK fk_citas_bloque es
+    // ON DELETE SET NULL, por lo que borrar un bloque dejaría huérfanas a las
+    // citas ya agendadas. Desactivar (activo = 0) lo oculta de la grilla
+    // (getSchedules filtra activo = 1) sin perder la trazabilidad.
     const generatedBlocks = [];
 
-    for (const day of selectedDays) {
-      let currentMinutes = startMinutes;
-      while (currentMinutes + duration <= endMinutes) {
-        const slotStart = formatMinutesToTime(currentMinutes);
-        const slotEnd = formatMinutesToTime(currentMinutes + duration);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-        await pool.query(
-          `INSERT INTO bloques_horarios (id_profesional, dia_semana, hora_inicio, hora_fin, aforo_maximo, activo)
-           VALUES (?, ?, ?, ?, 1, 1)`,
-          [targetTherapistId, day, slotStart, slotEnd]
-        );
+      await conn.query(
+        `UPDATE bloques_horarios SET activo = 0
+          WHERE id_profesional = ? AND dia_semana IN (?)`,
+        [targetTherapistId, selectedDays]
+      );
 
-        generatedBlocks.push({
-          id_therapist: targetTherapistId,
-          day_of_week: day,
-          start_time: slotStart,
-          end_time: slotEnd,
-          max_capacity: 1,
-        });
+      for (const day of selectedDays) {
+        let currentMinutes = startMinutes;
+        while (currentMinutes + duration <= endMinutes) {
+          const slotStart = formatMinutesToTime(currentMinutes);
+          const slotEnd = formatMinutesToTime(currentMinutes + duration);
 
-        currentMinutes += duration;
+          // UPSERT sobre la clave única (id_profesional, dia_semana, hora_inicio):
+          // si el slot ya existía (incluso desactivado), se reactiva y actualiza.
+          await conn.query(
+            `INSERT INTO bloques_horarios
+               (id_profesional, dia_semana, hora_inicio, hora_fin, aforo_maximo, activo)
+             VALUES (?, ?, ?, ?, 1, 1)
+             ON DUPLICATE KEY UPDATE
+               hora_fin      = VALUES(hora_fin),
+               aforo_maximo  = VALUES(aforo_maximo),
+               activo        = 1`,
+            [targetTherapistId, day, slotStart, slotEnd]
+          );
+
+          generatedBlocks.push({
+            id_therapist: targetTherapistId,
+            day_of_week: day,
+            start_time: slotStart,
+            end_time: slotEnd,
+            max_capacity: 1,
+          });
+
+          currentMinutes += duration;
+        }
       }
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
     }
 
     return res.status(201).json({

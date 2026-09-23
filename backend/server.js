@@ -29,18 +29,20 @@ app.get('/api/health', (req, res) => {
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
 
-// Rutas de gestión de terapeutas y especialidades
+// Rutas de gestión de terapeutas y especialidades (US-13)
 app.use('/api/terapeutas', terapeutasRoutes);
 app.use('/api/especialidades', especialidadesRoutes);
 
-// Rutas de clases grupales y aforos
+// Catálogo de talleres grupales para mobile (US-08 / FIX-01)
 app.use('/api/classes', classesRoutes);
 
-// Rutas de agendas y configuración de jornadas
+// Configuración de jornadas del panel web (US-08 / FIX-01)
 app.use('/api/schedules', schedulesRoutes);
 
-// Rutas legadas de agendas y clases
+// API de dominio: agendas / bloques horarios (US-07)
 app.use('/api/agendas', agendasRoutes);
+
+// API de dominio: clases grupales / talleres (US-11)
 app.use('/api/clases', clasesRoutes);
 
 // Ruta raíz

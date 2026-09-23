@@ -22,8 +22,7 @@ const getClasses = async (req, res) => {
               c.hora_inicio AS start_time,
               c.hora_fin AS end_time,
               c.estado_clase AS status,
-              COALESCE(c.ubicacion, 'Sala 1 (Planta Baja)') AS location,
-              COALESCE(c.categoria, 'Todos') AS category
+              COALESCE(c.sala, 'Sin sala asignada') AS location
          FROM clases_grupales c
          JOIN profesionales p ON p.id_profesional = c.id_instructor
          JOIN usuarios u ON u.id_usuario = p.id_usuario
@@ -120,13 +119,26 @@ const reserveClass = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in reserveClass:', error);
-    if (error.message && error.message.includes('aforo')) {
+
+    // El trigger trg_control_aforo_clases aborta con SIGNAL SQLSTATE '45000'
+    // cuando la clase alcanza su aforo máximo.
+    if (error.sqlState === '45000') {
       return res.status(409).json({
         success: false,
         message: 'La clase alcanzó su límite de capacidad (Aforo Completo)',
         error: 'CLASS_FULL',
       });
     }
+
+    // UNIQUE uq_paciente_clase: el paciente ya está inscrito en esta clase.
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        success: false,
+        message: 'Ya tienes una inscripción activa en esta clase',
+        error: 'ALREADY_RESERVED',
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Internal server error while reserving class',
