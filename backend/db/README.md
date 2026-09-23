@@ -1,7 +1,6 @@
 # Base de Datos — S.A.P.C. Chawal
 
-Esquema relacional **MySQL 8.0** (InnoDB, `utf8mb4_unicode_ci`) para la plataforma
-de rehabilitación Chawal.
+Esquema relacional **MySQL 8.0** (InnoDB, `utf8mb4_unicode_ci`) para la plataforma Chawal.
 
 ---
 
