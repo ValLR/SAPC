@@ -72,13 +72,13 @@ const req = async (metodo, ruta, body, token) => {
   check(lista.status === 200 && lista.data?.count >= 3, 'GET /clases (>=3 del seed)', `status=${lista.status}, count=${lista.data?.count}`);
   check(lista.data?.data?.[0]?.sala !== undefined, 'Incluye sala [R20]', `ej: ${lista.data?.data?.[0]?.sala}`);
   check(lista.data?.data?.[0]?.instructor !== undefined, 'Incluye instructor', `ej: ${lista.data?.data?.[0]?.instructor}`);
-  check(lista.data?.data?.[0]?.reservas_activas !== undefined, 'Incluye reservas_activas', `ej: ${lista.data?.data?.[0]?.reservas_activas}`);
+  check(lista.data?.data?.[0]?.inscripciones_activas !== undefined, 'Incluye inscripciones_activas', `ej: ${lista.data?.data?.[0]?.inscripciones_activas}`);
 
   // Clase 1: aforo 3, 2 reservas -> cupos 1
   const clase1 = lista.data?.data?.find((c) => c.id_clase === 1);
   check(clase1?.aforo_maximo === 3, 'Clase 1: aforo_maximo = 3', `valor=${clase1?.aforo_maximo}`);
   check(clase1?.cupos_disponibles === 1, 'Clase 1: cupos_disponibles = 1', `valor=${clase1?.cupos_disponibles}`);
-  check(clase1?.reservas_activas === 2, 'Clase 1: reservas_activas = 2', `valor=${clase1?.reservas_activas}`);
+  check(clase1?.inscripciones_activas === 2, 'Clase 1: inscripciones_activas = 2', `valor=${clase1?.inscripciones_activas}`);
   check(clase1?.disponible === true, 'Clase 1: disponible = true', `valor=${clase1?.disponible}`);
 
   // -------------------------------------------------------------------
@@ -136,7 +136,7 @@ const req = async (metodo, ruta, body, token) => {
   check(creada.data?.data?.aforo_maximo === 4, 'aforo_maximo = 4', `valor=${creada.data?.data?.aforo_maximo}`);
   check(creada.data?.data?.sala === 'Sala 3 - Multiuso', 'sala persistida', `valor=${creada.data?.data?.sala}`);
   check(creada.data?.data?.estado_clase === 'PROGRAMADA', 'estado_clase = PROGRAMADA', `valor=${creada.data?.data?.estado_clase}`);
-  check(creada.data?.data?.reservas_activas === 0, 'reservas_activas = 0', `valor=${creada.data?.data?.reservas_activas}`);
+  check(creada.data?.data?.inscripciones_activas === 0, 'inscripciones_activas = 0', `valor=${creada.data?.data?.inscripciones_activas}`);
 
   // -------------------------------------------------------------------
   // 6. Errores del Escenario 1

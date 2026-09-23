@@ -18,8 +18,8 @@
 --   [R13] Aforo operativo único en bloques_horarios (servicios = nominal)
 --   [R14] Triggers validan coherencia bloque/día/rango/solapamiento y
 --         derivan es_grupal (no delegable a un INSERT directo)
---   [R15] Módulo de clases grupales + reservas con control de aforo por trigger
---   [R16] Pagos con exclusividad XOR (cita | reserva de clase)
+--   [R15] Módulo de clases grupales + inscripciones con control de aforo por trigger
+--   [R16] Pagos con exclusividad XOR (cita | inscripción a clase)
 --   [R17] comprobantes_pdf 1:1 con pagos (resuelve la duda del docente)
 --   [R18] novedades (contenido institucional)
 --   [R19] US-13: campo titulo_profesional + estado_disponibilidad operativa
@@ -38,7 +38,7 @@ USE chawal_db;
 DROP VIEW  IF EXISTS v_usuarios_roles;
 DROP TABLE IF EXISTS comprobantes_pdf;
 DROP TABLE IF EXISTS pagos;
-DROP TABLE IF EXISTS reservas_clases;
+DROP TABLE IF EXISTS inscripciones_clases;
 DROP TABLE IF EXISTS clases_grupales;
 DROP TABLE IF EXISTS novedades;
 DROP TABLE IF EXISTS auditoria;
@@ -351,10 +351,10 @@ CREATE TABLE citas (
 -- =====================================================================
 -- §10  CLASES_GRUPALES  — talleres con aforo  [R15]
 --      Coexiste con `citas` (agenda individual). El aforo se controla
---      por triggers sobre `reservas_clases` (ver db/triggers/):
---        trg_control_aforo_clases  -> descuenta cupo al inscribirse
---        trg_reserva_cupo_update   -> devuelve/consume cupo [US-09]
---        trg_reserva_cupo_delete   -> devuelve cupo al eliminar [US-09]
+--      por triggers sobre `inscripciones_clases` (ver db/triggers/):
+--        trg_control_aforo_clases   -> descuenta cupo al inscribirse
+--        trg_inscripcion_cupo_update -> devuelve/consume cupo [US-09]
+--        trg_inscripcion_cupo_delete -> devuelve cupo al eliminar [US-09]
 -- =====================================================================
 CREATE TABLE clases_grupales (
     id_clase          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
@@ -386,25 +386,26 @@ CREATE TABLE clases_grupales (
   COMMENT='Clases/talleres grupales con aforo controlado por trigger';
 
 -- =====================================================================
--- §11  RESERVAS_CLASES  — inscripciones a clases grupales  [R15]
+-- §11  INSCRIPCIONES_CLASES  — inscripciones a clases grupales  [R15]
 --      El trigger trg_control_aforo_clases valida cupo y decrementa.
+--      (La tarjeta US-09 nombra esta tabla `inscripciones_clases`.)
 -- =====================================================================
-CREATE TABLE reservas_clases (
-    id_reserva_clase   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE inscripciones_clases (
+    id_inscripcion     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     -- [R1] El alumno es un PACIENTE (entidad de dominio), no un usuario
     --      cualquiera: así un ADMINISTRADOR o TERAPEUTA no puede inscribirse.
     --      Coherente con citas.id_paciente.
     id_paciente        INT UNSIGNED NOT NULL COMMENT '[R1] Paciente que se inscribe',
     id_clase           INT UNSIGNED NOT NULL,
     fecha_inscripcion  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    estado_reserva     ENUM('ACTIVA','CANCELADA') NOT NULL DEFAULT 'ACTIVA',
-    PRIMARY KEY (id_reserva_clase),
+    estado_inscripcion ENUM('ACTIVA','CANCELADA') NOT NULL DEFAULT 'ACTIVA',
+    PRIMARY KEY (id_inscripcion),
     UNIQUE KEY uq_paciente_clase (id_paciente, id_clase),
-    KEY ix_reservas_clase (id_clase),
-    CONSTRAINT fk_reservas_paciente
+    KEY ix_inscripciones_clase (id_clase),
+    CONSTRAINT fk_inscripciones_paciente
         FOREIGN KEY (id_paciente) REFERENCES pacientes (id_paciente)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_reservas_clase
+    CONSTRAINT fk_inscripciones_clase
         FOREIGN KEY (id_clase) REFERENCES clases_grupales (id_clase)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -417,8 +418,8 @@ CREATE TABLE reservas_clases (
 -- =====================================================================
 CREATE TABLE pagos (
     id_pago           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    id_cita           INT UNSIGNED  NULL COMMENT '[R16] XOR: cita individual',
-    id_reserva_clase  INT UNSIGNED  NULL COMMENT '[R16] XOR: reserva de clase grupal',
+    id_cita             INT UNSIGNED NULL COMMENT '[R16] XOR: cita individual',
+    id_inscripcion_clase INT UNSIGNED NULL COMMENT '[R16] XOR: inscripción a taller grupal',
     monto             DECIMAL(10,2) NOT NULL,
     metodo_pago       ENUM('EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA','SEGURO') NOT NULL DEFAULT 'EFECTIVO',
     estado_pago       ENUM('PENDIENTE','PAGADO','RECHAZADO','REEMBOLSADO') NOT NULL DEFAULT 'PENDIENTE',
@@ -427,25 +428,25 @@ CREATE TABLE pagos (
     created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id_pago),
-    UNIQUE KEY uq_pagos_cita          (id_cita),          -- 1:1 con cita
-    UNIQUE KEY uq_pagos_reserva_clase (id_reserva_clase), -- 1:1 con reserva
+    UNIQUE KEY uq_pagos_cita              (id_cita),              -- 1:1 con cita
+    UNIQUE KEY uq_pagos_inscripcion_clase (id_inscripcion_clase), -- 1:1 con inscripción
     KEY ix_pagos_estado_fecha (estado_pago, fecha_pago),
     -- ⚠️ MySQL 8.0 prohíbe acciones referenciales (CASCADE/SET NULL) en
     --    columnas usadas por un CHECK (error 3823). Como id_cita e
-    --    id_reserva_clase participan en chk_pago_servicio_exclusivo, sus
+    --    id_inscripcion_clase participan en chk_pago_servicio_exclusivo, sus
     --    FK deben ser RESTRICT. Además es lo correcto para registros
     --    financieros: un pago no debe borrarse en cascada.
     CONSTRAINT fk_pagos_cita
         FOREIGN KEY (id_cita) REFERENCES citas (id_cita)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT fk_pagos_reserva_clase
-        FOREIGN KEY (id_reserva_clase) REFERENCES reservas_clases (id_reserva_clase)
+    CONSTRAINT fk_pagos_inscripcion_clase
+        FOREIGN KEY (id_inscripcion_clase) REFERENCES inscripciones_clases (id_inscripcion)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT chk_pagos_monto CHECK (monto >= 0),
     -- [R16] Exclusividad estricta: exactamente uno de los dos destinos.
     CONSTRAINT chk_pago_servicio_exclusivo CHECK (
-        (id_cita IS NOT NULL AND id_reserva_clase IS NULL)
-     OR (id_cita IS NULL     AND id_reserva_clase IS NOT NULL)
+        (id_cita IS NOT NULL AND id_inscripcion_clase IS NULL)
+     OR (id_cita IS NULL     AND id_inscripcion_clase IS NOT NULL)
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Pagos con exclusividad XOR: cita individual o reserva de clase';
@@ -528,7 +529,7 @@ CREATE TABLE auditoria (
     id_usuario      INT UNSIGNED    NULL COMMENT 'Actor; NULL si el usuario fue borrado',
     tabla_afectada  ENUM('roles','usuarios','especialidades','profesionales','pacientes',
                          'profesional_especialidad','servicios','bloques_horarios',
-                         'citas','clases_grupales','reservas_clases','pagos',
+                         'citas','clases_grupales','inscripciones_clases','pagos',
                          'comprobantes_pdf','novedades','notificaciones','configuracion') NOT NULL,
     id_registro     BIGINT UNSIGNED NULL COMMENT '[R2] Referencia LÓGICA sin FK (polimorfismo controlado)',
     accion          ENUM('INSERT','UPDATE','DELETE','LOGIN','LOGOUT','LOGIN_FALLIDO') NOT NULL,
@@ -599,13 +600,15 @@ DROP TRIGGER IF EXISTS trg_citas_bu_validacion;
 DROP TRIGGER IF EXISTS trg_citas_ai_auditoria;
 DROP TRIGGER IF EXISTS trg_control_aforo_clases;
 
--- [US-09] Control de aforo bidireccional en reservas_clases
-DROP TRIGGER IF EXISTS trg_reserva_cupo_update;
-DROP TRIGGER IF EXISTS trg_reserva_cupo_delete;
+-- [US-09] Control de aforo bidireccional en inscripciones_clases
+DROP TRIGGER IF EXISTS trg_inscripcion_cupo_update;
+DROP TRIGGER IF EXISTS trg_inscripcion_cupo_delete;
 
 -- nombres legados (idempotencia si existían de una versión previa)
 DROP TRIGGER IF EXISTS trg_citas_bi_aforo;
 DROP TRIGGER IF EXISTS trg_citas_bu_aforo;
+DROP TRIGGER IF EXISTS trg_reserva_cupo_update;
+DROP TRIGGER IF EXISTS trg_reserva_cupo_delete;
 
 -- =====================================================================
 -- FIN DEL SCRIPT — schema.sql

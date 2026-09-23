@@ -1,13 +1,13 @@
 -- =====================================================================
 --  S.A.P.C. — CHAWAL  |  Trigger: trg_control_aforo_clases
 --  Archivo: db/triggers/trg_control_aforo_clases.sql
---  [R15] BEFORE INSERT en reservas_clases
+--  [R15] BEFORE INSERT en inscripciones_clases
 -- =====================================================================
 --  Control de aforo + decremento atómico del cupo disponible.
 --  Si no hay cupo, aborta con SIGNAL SQLSTATE '45000'.
 --
---  Complementado por trg_reserva_cupo_update y trg_reserva_cupo_delete,
---  que devuelven el cupo cuando la reserva se cancela o se elimina.
+--  Complementado por trg_inscripcion_cupo_update y trg_inscripcion_cupo_delete,
+--  que devuelven el cupo cuando la inscripción se cancela o se elimina.
 -- =====================================================================
 
 DROP TRIGGER IF EXISTS trg_control_aforo_clases;
@@ -15,7 +15,7 @@ DROP TRIGGER IF EXISTS trg_control_aforo_clases;
 DELIMITER //
 
 CREATE TRIGGER trg_control_aforo_clases
-BEFORE INSERT ON reservas_clases
+BEFORE INSERT ON inscripciones_clases
 FOR EACH ROW
 BEGIN
     DECLARE v_cupos INT DEFAULT 0;

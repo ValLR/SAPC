@@ -83,8 +83,8 @@ const ESPERADOS = {
     'trg_citas_bi_validacion',
     'trg_citas_bu_validacion',
     'trg_control_aforo_clases',
-    'trg_reserva_cupo_delete',
-    'trg_reserva_cupo_update'
+    'trg_inscripcion_cupo_delete',
+    'trg_inscripcion_cupo_update'
   ],
   PROCEDURE: ['sp_agendar_cita']
 };

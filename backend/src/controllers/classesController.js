@@ -46,7 +46,7 @@ const getClasses = async (req, res) => {
 
 /**
  * POST /api/classes/:id_class/reserve
- * Processes student reservation for a group class.
+ * Enrolls the authenticated patient in a group class (solo rol PACIENTE).
  * MySQL trigger trg_control_aforo_clases automatically decrements available_slots.
  */
 const reserveClass = async (req, res) => {
@@ -68,11 +68,19 @@ const reserveClass = async (req, res) => {
       [userId]
     );
 
-    let idPatient = patientRows[0]?.id_paciente;
+    const idPatient = patientRows[0]?.id_paciente;
 
+    // [R1] Una inscripción pertenece SIEMPRE a un paciente (entidad de
+    // dominio), nunca a un usuario cualquiera. Antes había un fallback que
+    // atribuía la inscripción al "paciente 1" cuando quien llamaba no era
+    // paciente (p. ej. un ADMINISTRADOR): eso creaba una inscripción falsa
+    // en silencio. Ahora se rechaza de forma explícita.
     if (!idPatient) {
-      const [fallbackPatients] = await pool.query(`SELECT id_paciente FROM pacientes LIMIT 1`);
-      idPatient = fallbackPatients[0]?.id_paciente || 1;
+      return res.status(403).json({
+        success: false,
+        message: 'Solo los pacientes pueden inscribirse en una clase grupal',
+        error: 'NOT_A_PATIENT',
+      });
     }
 
     // Check availability
@@ -103,9 +111,9 @@ const reserveClass = async (req, res) => {
       });
     }
 
-    // Insert reservation
+    // Insert enrollment
     await pool.query(
-      `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva) VALUES (?, ?, 'ACTIVA')`,
+      `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion) VALUES (?, ?, 'ACTIVA')`,
       [idPatient, idClass]
     );
 

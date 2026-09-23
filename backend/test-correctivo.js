@@ -6,6 +6,8 @@
 //    1. GET  /api/classes            -> ya no falla por columnas inexistentes
 //    2. POST /api/schedules/publish  -> no destruye bloques (upsert)
 //    3. POST /api/schedules/publish  -> requireRole funciona
+//    4. POST /api/classes/:id/reserve-> aforo agotado responde 400
+//    5. POST /api/classes/:id/reserve-> un no-paciente recibe 403 [R1]
 // =====================================================================
 
 const BASE = 'http://localhost:3000/api';
@@ -78,9 +80,14 @@ const req = async (metodo, ruta, body, token) => {
   check(martes.length === 1, 'Grilla muestra 1 bloque (viejos desactivados)', `n=${martes.length}`);
   check(martes[0]?.start_time === '08:00', 'Bloque vigente empieza 08:00', `start=${martes[0]?.start_time}`);
 
-  // --- 4. reserveClass: detección del SIGNAL 45000 del trigger ---
-  // Clase 3 tiene aforo 2. Se intenta inscribir a los 3 pacientes:
-  // al menos uno debe rebotar con CLASS_FULL y ninguno debe dar 500.
+  // --- 4. reserveClass: aforo agotado (AC US-09, Escenario 2) ---
+  // Clase 3 tiene aforo 2. Se inscriben los 3 pacientes de forma SECUENCIAL:
+  // los dos primeros ocupan los cupos y el tercero rebota.
+  //
+  // ⚠️ En este escenario el rechazo lo produce el PRE-CHECK de la aplicación
+  //    (`cupos_disponibles <= 0`), no el SIGNAL del trigger: el pre-check
+  //    corta antes de llegar al INSERT. El camino del trigger sólo se activa
+  //    bajo concurrencia real (ver test-concurrencia-us09.js).
   const tokensPac = [];
   for (const email of ['pedro.gonzalez@mail.cl', 'ana.munoz@mail.cl', 'luis.perez@mail.cl']) {
     const r = await req('POST', '/auth/login', { email, password: 'Password2026!' });
@@ -103,8 +110,36 @@ const req = async (metodo, ruta, body, token) => {
 
   check(!algun500, 'Ninguna inscripción devolvió 500', `statuses=${statuses.join(',')}`);
   check(algunLleno || algunDuplicado, 'Inscripciones rebotadas con error de negocio', `statuses=${statuses.join(',')}`);
-  check(algunLleno, 'Detecta CLASS_FULL (sqlState 45000)', `statuses=${statuses.join(',')}`);
+  check(algunLleno, 'Aforo agotado rechazado con CLASS_FULL (pre-check)', `statuses=${statuses.join(',')}`);
   check(llenoResponde400, 'CLASS_FULL responde 400 (AC US-09)', `statuses=${statuses.join(',')}`);
+
+  // --- 4b. [R1] Un usuario que NO es paciente no puede inscribirse ---
+  // Antes existía un fallback que atribuía la inscripción al "paciente 1"
+  // en silencio; ahora debe rechazarse explícitamente.
+  const cuposDeClase3 = async () => {
+    const r = await req('GET', '/classes', null, tokenAdmin);
+    return r.data?.data?.find((c) => c.id_class === 3)?.available_slots;
+  };
+
+  const cuposAntes = await cuposDeClase3();
+  const adminReserva = await req('POST', '/classes/3/reserve', null, tokenAdmin);
+  const cuposDespues = await cuposDeClase3();
+
+  check(
+    adminReserva.status === 403,
+    'ADMINISTRADOR reservando -> 403 (ya no cae en paciente 1)',
+    `status=${adminReserva.status}, error=${adminReserva.data?.error}`
+  );
+  check(
+    ['FORBIDDEN', 'NOT_A_PATIENT'].includes(adminReserva.data?.error),
+    'Motivo del rechazo explícito',
+    `error=${adminReserva.data?.error}`
+  );
+  check(
+    cuposAntes !== undefined && cuposAntes === cuposDespues,
+    'El intento del admin no consumió cupo',
+    `antes=${cuposAntes}, despues=${cuposDespues}`
+  );
 
   // --- 5. Reserva duplicada: UNIQUE uq_paciente_clase ---
   const dup = await req('POST', '/classes/1/reserve', null, tokensPac[0]);

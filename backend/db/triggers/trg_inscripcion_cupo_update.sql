@@ -1,9 +1,9 @@
 -- =====================================================================
---  S.A.P.C. — CHAWAL  |  Trigger: trg_reserva_cupo_update
---  Archivo: db/triggers/trg_reserva_cupo_update.sql
---  Historia: US-09 (SCRUM-46 / control de aforo y cupos dinámicos)
+--  S.A.P.C. — CHAWAL  |  Trigger: trg_inscripcion_cupo_update
+--  Archivo: db/triggers/trg_inscripcion_cupo_update.sql
+--  Historia: US-09 (control de aforo y cupos dinámicos)
 -- =====================================================================
---  BEFORE UPDATE en reservas_clases.
+--  BEFORE UPDATE en inscripciones_clases.
 --
 --  Cierra el ciclo del aforo que trg_control_aforo_clases sólo abría por
 --  el lado de la inscripción:
@@ -23,21 +23,21 @@
 --  restricción chk_clases_cupos (cupos_disponibles <= aforo_maximo).
 -- =====================================================================
 
-DROP TRIGGER IF EXISTS trg_reserva_cupo_update;
+DROP TRIGGER IF EXISTS trg_inscripcion_cupo_update;
 
 DELIMITER //
 
-CREATE TRIGGER trg_reserva_cupo_update
-BEFORE UPDATE ON reservas_clases
+CREATE TRIGGER trg_inscripcion_cupo_update
+BEFORE UPDATE ON inscripciones_clases
 FOR EACH ROW
 BEGIN
     DECLARE v_cupos INT DEFAULT 0;
 
     -- -----------------------------------------------------------------
-    -- (a)(c) La reserva deja de ocupar cupo en la clase anterior
+    -- (a)(c) La inscripción deja de ocupar cupo en la clase anterior
     -- -----------------------------------------------------------------
-    IF OLD.estado_reserva = 'ACTIVA'
-       AND (NEW.estado_reserva <> 'ACTIVA' OR NEW.id_clase <> OLD.id_clase) THEN
+    IF OLD.estado_inscripcion = 'ACTIVA'
+       AND (NEW.estado_inscripcion <> 'ACTIVA' OR NEW.id_clase <> OLD.id_clase) THEN
 
         UPDATE clases_grupales
            SET cupos_disponibles = LEAST(aforo_maximo, cupos_disponibles + 1)
@@ -45,10 +45,10 @@ BEGIN
     END IF;
 
     -- -----------------------------------------------------------------
-    -- (b)(c) La reserva pasa a ocupar cupo en la clase nueva
+    -- (b)(c) La inscripción pasa a ocupar cupo en la clase nueva
     -- -----------------------------------------------------------------
-    IF NEW.estado_reserva = 'ACTIVA'
-       AND (OLD.estado_reserva <> 'ACTIVA' OR NEW.id_clase <> OLD.id_clase) THEN
+    IF NEW.estado_inscripcion = 'ACTIVA'
+       AND (OLD.estado_inscripcion <> 'ACTIVA' OR NEW.id_clase <> OLD.id_clase) THEN
 
         -- Bloqueo pesimista: evita sobreventa si dos reactivaciones
         -- compiten por el último cupo.

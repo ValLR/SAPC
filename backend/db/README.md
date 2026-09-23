@@ -42,9 +42,9 @@ db/
     ├── trg_citas_bi_validacion.sql        BEFORE INSERT en citas
     ├── trg_citas_bu_validacion.sql        BEFORE UPDATE en citas
     ├── trg_citas_ai_auditoria.sql         AFTER INSERT en citas
-    ├── trg_control_aforo_clases.sql       BEFORE INSERT en reservas_clases
-    ├── trg_reserva_cupo_update.sql        BEFORE UPDATE en reservas_clases  [US-09]
-    └── trg_reserva_cupo_delete.sql        AFTER DELETE en reservas_clases  [US-09]
+    ├── trg_control_aforo_clases.sql       BEFORE INSERT en inscripciones_clases
+    ├── trg_inscripcion_cupo_update.sql    BEFORE UPDATE en inscripciones_clases  [US-09]
+    └── trg_inscripcion_cupo_delete.sql    AFTER DELETE en inscripciones_clases  [US-09]
 ```
 
 ---
@@ -54,20 +54,34 @@ db/
 Los talleres grupales tienen `aforo_maximo` y `cupos_disponibles`. Los cupos se
 mantienen **siempre** mediante triggers, nunca desde la aplicación:
 
-| Operación sobre `reservas_clases` | Trigger | Efecto en `cupos_disponibles` |
+| Operación sobre `inscripciones_clases` | Trigger | Efecto en `cupos_disponibles` |
 |---|---|---|
 | `INSERT` | `trg_control_aforo_clases` | **−1** (aborta si ya es 0) |
-| `UPDATE` ACTIVA → CANCELADA | `trg_reserva_cupo_update` | **+1** |
-| `UPDATE` CANCELADA → ACTIVA | `trg_reserva_cupo_update` | **−1** (aborta si no hay cupo) |
-| `UPDATE` cambio de `id_clase` | `trg_reserva_cupo_update` | **+1** en origen, **−1** en destino |
-| `DELETE` de reserva ACTIVA | `trg_reserva_cupo_delete` | **+1** |
+| `UPDATE` ACTIVA → CANCELADA | `trg_inscripcion_cupo_update` | **+1** |
+| `UPDATE` CANCELADA → ACTIVA | `trg_inscripcion_cupo_update` | **−1** (aborta si no hay cupo) |
+| `UPDATE` cambio de `id_clase` | `trg_inscripcion_cupo_update` | **+1** en origen, **−1** en destino |
+| `DELETE` de inscripción ACTIVA | `trg_inscripcion_cupo_delete` | **+1** |
 
 El incremento usa `LEAST(aforo_maximo, cupos_disponibles + 1)` para respetar la
 restricción `chk_clases_cupos` (`cupos_disponibles <= aforo_maximo`).
 
-**Caso de uso resuelto (US-09):** antes, cancelar una reserva no devolvía el
+**Caso de uso resuelto (US-09):** antes, cancelar una inscripción no devolvía el
 cupo, por lo que un paciente que cancelaba quedaba bloqueado por el índice
 único `uq_paciente_clase` y el taller perdía ese cupo permanentemente.
+
+### ¿Quién rechaza cuando el taller está lleno?
+
+El rechazo (`400 Bad Request`, `error: CLASS_FULL`) puede originarse en **dos
+lugares**, y conviene no confundirlos:
+
+| Situación | Quién rechaza | Mensaje |
+|---|---|---|
+| Petición secuencial con `cupos_disponibles = 0` | **Pre-check** del controlador | *"ya no cuenta con aforo disponible"* |
+| Varias peticiones simultáneas sobre el último cupo | **Trigger** `trg_control_aforo_clases` (`SIGNAL 45000`) | *"alcanzó su límite de capacidad"* |
+
+El pre-check es una optimización (evita ir a la BD para nada); el trigger es la
+**red de seguridad contra la sobreventa**. Para probar el segundo camino hace
+falta concurrencia real: ver `backend/test-concurrencia-us09.js`.
 
 ---
 

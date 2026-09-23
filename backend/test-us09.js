@@ -4,14 +4,14 @@
 // =====================================================================
 //  Prueba el CICLO COMPLETO del aforo a nivel de base de datos:
 //
-//    1. INSERT reserva           -> cupos -1
+//    1. INSERT inscripción       -> cupos -1
 //    2. INSERT sin cupo          -> SIGNAL 45000 (aborta)
 //    3. UPDATE ACTIVA->CANCELADA -> cupos +1   (el gap que cierra US-09)
 //    4. Re-inscribir tras cancelar -> ya no queda bloqueado
 //    5. UPDATE CANCELADA->ACTIVA -> cupos -1 (valida disponibilidad)
 //    6. UPDATE CANCELADA->ACTIVA sin cupo -> SIGNAL 45000
-//    7. DELETE reserva ACTIVA    -> cupos +1
-//    8. DELETE reserva CANCELADA -> sin cambio
+//    7. DELETE inscripción ACTIVA    -> cupos +1
+//    8. DELETE inscripción CANCELADA -> sin cambio
 //
 //  Uso:  node test-us09.js
 //  Requiere:  npm run db:setup  (o BD ya inicializada)
@@ -74,14 +74,14 @@ const check = (cond, etiqueta, detalle) => {
     // 1. INSERT descuenta cupo
     // -----------------------------------------------------------------
     const [r1] = await conn.query(
-      `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva)
+      `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion)
        VALUES (1, ?, 'ACTIVA')`, [idClase]
     );
     const idR1 = r1.insertId;
-    check(await cuposDe(idClase) === 1, '[1] INSERT reserva -> cupos 2→1', `cupos=${await cuposDe(idClase)}`);
+    check(await cuposDe(idClase) === 1, '[1] INSERT inscripción -> cupos 2→1', `cupos=${await cuposDe(idClase)}`);
 
     const [r2] = await conn.query(
-      `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva)
+      `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion)
        VALUES (2, ?, 'ACTIVA')`, [idClase]
     );
     const idR2 = r2.insertId;
@@ -93,7 +93,7 @@ const check = (cond, etiqueta, detalle) => {
     let aborto = false;
     try {
       await conn.query(
-        `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva)
+        `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion)
          VALUES (3, ?, 'ACTIVA')`, [idClase]
       );
     } catch (e) {
@@ -105,7 +105,7 @@ const check = (cond, etiqueta, detalle) => {
     // 3. CANCELAR devuelve el cupo  ← EL GAP QUE CIERRA US-09
     // -----------------------------------------------------------------
     await conn.query(
-      `UPDATE reservas_clases SET estado_reserva = 'CANCELADA' WHERE id_reserva_clase = ?`, [idR1]
+      `UPDATE inscripciones_clases SET estado_inscripcion = 'CANCELADA' WHERE id_inscripcion = ?`, [idR1]
     );
     check(await cuposDe(idClase) === 1, '[3] ACTIVA→CANCELADA devuelve cupo (0→1)', `cupos=${await cuposDe(idClase)}`);
 
@@ -113,7 +113,7 @@ const check = (cond, etiqueta, detalle) => {
     // 4. El cupo liberado se puede reutilizar por otro paciente
     // -----------------------------------------------------------------
     const [r3] = await conn.query(
-      `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva)
+      `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion)
        VALUES (3, ?, 'ACTIVA')`, [idClase]
     );
     const idR3 = r3.insertId;
@@ -123,12 +123,12 @@ const check = (cond, etiqueta, detalle) => {
     // 5. REACTIVAR consume cupo cuando hay disponibilidad
     // -----------------------------------------------------------------
     await conn.query(
-      `UPDATE reservas_clases SET estado_reserva = 'CANCELADA' WHERE id_reserva_clase = ?`, [idR3]
+      `UPDATE inscripciones_clases SET estado_inscripcion = 'CANCELADA' WHERE id_inscripcion = ?`, [idR3]
     );
     check(await cuposDe(idClase) === 1, '[5a] Cancelar libera (0→1)', `cupos=${await cuposDe(idClase)}`);
 
     await conn.query(
-      `UPDATE reservas_clases SET estado_reserva = 'ACTIVA' WHERE id_reserva_clase = ?`, [idR3]
+      `UPDATE inscripciones_clases SET estado_inscripcion = 'ACTIVA' WHERE id_inscripcion = ?`, [idR3]
     );
     check(await cuposDe(idClase) === 0, '[5b] CANCELADA→ACTIVA consume cupo (1→0)', `cupos=${await cuposDe(idClase)}`);
 
@@ -139,7 +139,7 @@ const check = (cond, etiqueta, detalle) => {
     let abortoReactivar = false;
     try {
       await conn.query(
-        `UPDATE reservas_clases SET estado_reserva = 'ACTIVA' WHERE id_reserva_clase = ?`, [idR1]
+        `UPDATE inscripciones_clases SET estado_inscripcion = 'ACTIVA' WHERE id_inscripcion = ?`, [idR1]
       );
     } catch (e) {
       abortoReactivar = e.sqlState === '45000';
@@ -148,21 +148,21 @@ const check = (cond, etiqueta, detalle) => {
     check(await cuposDe(idClase) === 0, '[6] El cupo no cambió tras el aborto', `cupos=${await cuposDe(idClase)}`);
 
     // -----------------------------------------------------------------
-    // 7. DELETE de reserva ACTIVA devuelve el cupo
+    // 7. DELETE de inscripción ACTIVA devuelve el cupo
     // -----------------------------------------------------------------
-    await conn.query('DELETE FROM reservas_clases WHERE id_reserva_clase = ?', [idR2]);
-    check(await cuposDe(idClase) === 1, '[7] DELETE reserva ACTIVA devuelve cupo (0→1)', `cupos=${await cuposDe(idClase)}`);
+    await conn.query('DELETE FROM inscripciones_clases WHERE id_inscripcion = ?', [idR2]);
+    check(await cuposDe(idClase) === 1, '[7] DELETE inscripción ACTIVA devuelve cupo (0→1)', `cupos=${await cuposDe(idClase)}`);
 
     // -----------------------------------------------------------------
-    // 8. DELETE de reserva CANCELADA no altera el cupo
+    // 8. DELETE de inscripción CANCELADA no altera el cupo
     // -----------------------------------------------------------------
-    await conn.query('DELETE FROM reservas_clases WHERE id_reserva_clase = ?', [idR1]); // CANCELADA
-    check(await cuposDe(idClase) === 1, '[8] DELETE reserva CANCELADA no altera cupos', `cupos=${await cuposDe(idClase)}`);
+    await conn.query('DELETE FROM inscripciones_clases WHERE id_inscripcion = ?', [idR1]); // CANCELADA
+    check(await cuposDe(idClase) === 1, '[8] DELETE inscripción CANCELADA no altera cupos', `cupos=${await cuposDe(idClase)}`);
 
     // -----------------------------------------------------------------
     // 9. Guarda de integridad: cupos nunca supera el aforo
     // -----------------------------------------------------------------
-    await conn.query('DELETE FROM reservas_clases WHERE id_reserva_clase = ?', [idR3]); // ACTIVA
+    await conn.query('DELETE FROM inscripciones_clases WHERE id_inscripcion = ?', [idR3]); // ACTIVA
     check(await cuposDe(idClase) === 2, '[9] Todos liberados -> cupos = aforo (2)', `cupos=${await cuposDe(idClase)}`);
 
   } catch (err) {
@@ -170,8 +170,8 @@ const check = (cond, etiqueta, detalle) => {
     console.log(`FALLA | Excepción no controlada: ${err.message}`);
   } finally {
     if (idClase) {
-      // El DELETE de la clase dispara el cascade sobre reservas_clases;
-      // trg_reserva_cupo_delete debe tolerarlo sin errores.
+      // El DELETE de la clase dispara el cascade sobre inscripciones_clases;
+      // trg_inscripcion_cupo_delete debe tolerarlo sin errores.
       await conn.query('DELETE FROM clases_grupales WHERE id_clase = ?', [idClase]);
       console.log(`${'─'.repeat(110)}`);
       console.log('  (clase de prueba eliminada)');
