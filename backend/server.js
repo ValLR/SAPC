@@ -5,6 +5,8 @@ const cors = require('cors');
 const authRoutes = require('./src/routes/auth.routes');
 const terapeutasRoutes = require('./src/routes/terapeutas.routes');
 const especialidadesRoutes = require('./src/routes/especialidades.routes');
+const classesRoutes = require('./src/routes/classesRoutes');
+const schedulesRoutes = require('./src/routes/schedulesRoutes');
 const agendasRoutes = require('./src/routes/agendas.routes');
 const clasesRoutes = require('./src/routes/clases.routes');
 
@@ -27,14 +29,18 @@ app.get('/api/health', (req, res) => {
 // Rutas de autenticación
 app.use('/api/auth', authRoutes);
 
-// Rutas de gestión de terapeutas y especialidades (US-13)
+// Rutas de gestión de terapeutas y especialidades
 app.use('/api/terapeutas', terapeutasRoutes);
 app.use('/api/especialidades', especialidadesRoutes);
 
-// Rutas de agendas / bloques horarios (US-07)
-app.use('/api/agendas', agendasRoutes);
+// Rutas de clases grupales y aforos
+app.use('/api/classes', classesRoutes);
 
-// Rutas de clases grupales / talleres (US-11)
+// Rutas de agendas y configuración de jornadas
+app.use('/api/schedules', schedulesRoutes);
+
+// Rutas legadas de agendas y clases
+app.use('/api/agendas', agendasRoutes);
 app.use('/api/clases', clasesRoutes);
 
 // Ruta raíz
@@ -46,6 +52,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       terapeutas: '/api/terapeutas',
       especialidades: '/api/especialidades',
+      classes: '/api/classes',
+      schedules: '/api/schedules',
       agendas: '/api/agendas',
       clases: '/api/clases'
     }

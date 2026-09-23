@@ -1,4 +1,4 @@
-// Rutas de Autenticación - US-01 (SCRUM-9)
+// Rutas de Autenticación
 const express = require('express');
 const { login } = require('../controllers/auth.controller');
 

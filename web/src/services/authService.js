@@ -1,5 +1,5 @@
 /**
- * Servicio de Autenticación para Portal Web Administrativo - US-04 / US-01
+ * Servicio de Autenticación para Portal Web Administrativo
  * Conexión directa al backend REST API Node.js / Express
  */
 

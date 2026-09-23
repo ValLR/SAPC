@@ -1,4 +1,4 @@
-// Controlador de Autenticación - US-01 (SCRUM-9)
+// Controlador de Autenticación
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
