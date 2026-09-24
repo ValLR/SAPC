@@ -9,11 +9,12 @@
 
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
+const { IDS_ROL } = require('../utils/roles');
 
 // ---------------------------------------------------------------------
 //  Constantes de dominio
 // ---------------------------------------------------------------------
-const ROL_TERAPEUTA = 2;   // roles.id_rol = 2 (TERAPEUTA)
+const ROL_TERAPEUTA = IDS_ROL.TERAPEUTA;   // roles.id_rol = 2 (TERAPEUTA)
 const ESTADOS_CUENTA = ['ACTIVO', 'INACTIVO', 'BLOQUEADO', 'PENDIENTE'];
 const ESTADOS_DISPONIBILIDAD = ['DISPONIBLE', 'NO_DISPONIBLE', 'LICENCIA'];
 

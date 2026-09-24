@@ -14,12 +14,13 @@
 // =====================================================================
 
 const pool = require('../config/db');
+const { IDS_ROL } = require('../utils/roles');
 
 // ---------------------------------------------------------------------
 //  Constantes de dominio
 // ---------------------------------------------------------------------
 const ESTADOS_CLASE = ['PROGRAMADA', 'COMPLETADA', 'CANCELADA'];
-const ROL_TERAPEUTA = 2;
+const ROL_TERAPEUTA = IDS_ROL.TERAPEUTA;   // roles.id_rol = 2 (TERAPEUTA)
 
 // ---------------------------------------------------------------------
 //  Helpers

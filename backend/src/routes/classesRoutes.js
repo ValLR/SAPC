@@ -6,6 +6,7 @@
 const express = require('express');
 const { getClasses, reserveClass } = require('../controllers/classesController');
 const { verifyToken, requireRole } = require('../middlewares/auth.middleware');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -23,6 +24,6 @@ router.get('/', verifyToken, getClasses);
  *         [R1] La inscripción pertenece a un paciente, no a un usuario
  *         cualquiera; por eso se restringe el rol antes de tocar la BD.
  */
-router.post('/:id_class/reserve', verifyToken, requireRole('PACIENTE'), reserveClass);
+router.post('/:id_class/reserve', verifyToken, requireRole(ROLES.PACIENTE), reserveClass);
 
 module.exports = router;
