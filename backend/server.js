@@ -10,6 +10,7 @@ const schedulesRoutes = require('./src/routes/schedulesRoutes');
 const agendasRoutes = require('./src/routes/agendas.routes');
 const clasesRoutes = require('./src/routes/clases.routes');
 const citasRoutes = require('./src/routes/citas.routes');
+const reportsRoutes = require('./src/routes/reports.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +50,9 @@ app.use('/api/clases', clasesRoutes);
 // API de dominio: citas / agendamiento transaccional (US-05)
 app.use('/api/citas', citasRoutes);
 
+// Reportería administrativa: métricas de demanda y ocupación (US-15)
+app.use('/api/reports', reportsRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
@@ -62,7 +66,8 @@ app.get('/', (req, res) => {
       schedules: '/api/schedules',
       agendas: '/api/agendas',
       clases: '/api/clases',
-      citas: '/api/citas'
+      citas: '/api/citas',
+      reports: '/api/reports'
     }
   });
 });
