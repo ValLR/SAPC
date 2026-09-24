@@ -85,7 +85,7 @@ describe('TalleresPage Component (US-12)', () => {
     });
 
     fireEvent.change(screen.getByLabelText(/Fecha de la Clase/i), {
-      target: { value: '2026-11-01' },
+      target: { value: '01/11/2026' },
     });
 
     fireEvent.change(screen.getByLabelText(/Aforo Máximo/i), {

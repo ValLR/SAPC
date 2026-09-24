@@ -1,11 +1,17 @@
-/**
- * Servicio de Clases Grupales y Monitoreo de Aforo (Portal Web Admin)
- * Conexión a la REST API Node.js / Express — US-11 / US-12
- */
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-const getAuthToken = () => localStorage.getItem('sapc_token');
+const getAuthToken = () => {
+  try {
+    const savedSession = localStorage.getItem('sapc_web_admin_session');
+    if (savedSession) {
+      const parsed = JSON.parse(savedSession);
+      if (parsed && parsed.token) return parsed.token;
+    }
+  } catch (err) {
+    console.error('Error al leer sapc_web_admin_session:', err);
+  }
+  return localStorage.getItem('sapc_token') || '';
+};
 
 /**
  * Calcula las métricas de ocupación para la UI web.

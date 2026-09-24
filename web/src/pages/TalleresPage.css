@@ -85,7 +85,8 @@
 }
 
 .form-control {
-  padding: 10px 12px;
+  height: 42px;
+  padding: 0 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background-color: var(--color-surface);
@@ -98,6 +99,50 @@
 .form-control:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(27, 123, 117, 0.15);
+}
+
+/* Estilos de alineación y alto para MUI DatePicker TextField */
+.mui-datepicker-field {
+  width: 100%;
+}
+
+.mui-datepicker-field .MuiOutlinedInput-root,
+.mui-datepicker-field .MuiPickersInputBase-root,
+.mui-datepicker-field .MuiPickersOutlinedInput-root {
+  height: 42px;
+  padding-top: 9.5px !important;
+  padding-bottom: 9.5px !important;
+  box-sizing: border-box;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background-color: var(--color-surface);
+}
+
+.mui-datepicker-field .MuiOutlinedInput-notchedOutline,
+.mui-datepicker-field .MuiPickersOutlinedInput-notchedOutline {
+  border-color: var(--color-border) !important;
+  border-width: 1px !important;
+}
+
+.mui-datepicker-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.mui-datepicker-field .MuiPickersOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: var(--color-border-hover) !important;
+}
+
+.mui-datepicker-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.mui-datepicker-field .MuiPickersOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--color-primary) !important;
+  border-width: 1px !important;
+}
+
+.mui-datepicker-field .MuiOutlinedInput-input,
+.mui-datepicker-field .MuiPickersInputBase-input {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 12px;
+  padding-right: 12px;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .form-actions {
