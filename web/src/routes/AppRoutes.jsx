@@ -6,6 +6,7 @@ import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProfesionalesPage from '../pages/ProfesionalesPage';
 import ScheduleConfigPage from '../pages/ScheduleConfigPage';
+import TalleresPage from '../pages/TalleresPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
 
 /**
@@ -26,16 +27,7 @@ export const AppRoutes = () => {
 
             <Route path="/agendas" element={<ScheduleConfigPage />} />
 
-            <Route
-              path="/talleres"
-              element={
-                <PlaceholderPage
-                  code="US-12"
-                  title="Talleres Grupales y Aforos"
-                  description="Módulo para la administración de clases grupales, control de listas de asistencia y límite de aforo por sala."
-                />
-              }
-            />
+            <Route path="/talleres" element={<TalleresPage />} />
 
             <Route
               path="/reportes"
