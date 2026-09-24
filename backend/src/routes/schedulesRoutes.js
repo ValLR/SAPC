@@ -1,6 +1,7 @@
 const express = require('express');
 const { getSchedules, publishSchedule } = require('../controllers/schedulesController');
 const { verifyToken, requireRole } = require('../middlewares/auth.middleware');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -16,6 +17,6 @@ router.get('/', verifyToken, getSchedules);
  * @desc   Publish weekly working schedule slots
  * @access Private - ADMINISTRADOR o TERAPEUTA
  */
-router.post('/publish', verifyToken, requireRole('ADMINISTRADOR', 'TERAPEUTA'), publishSchedule);
+router.post('/publish', verifyToken, requireRole(ROLES.ADMINISTRADOR, ROLES.TERAPEUTA), publishSchedule);
 
 module.exports = router;
