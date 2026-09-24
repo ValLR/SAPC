@@ -9,6 +9,7 @@ const classesRoutes = require('./src/routes/classesRoutes');
 const schedulesRoutes = require('./src/routes/schedulesRoutes');
 const agendasRoutes = require('./src/routes/agendas.routes');
 const clasesRoutes = require('./src/routes/clases.routes');
+const citasRoutes = require('./src/routes/citas.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,9 @@ app.use('/api/agendas', agendasRoutes);
 // API de dominio: clases grupales / talleres (US-11)
 app.use('/api/clases', clasesRoutes);
 
+// API de dominio: citas / agendamiento transaccional (US-05)
+app.use('/api/citas', citasRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
@@ -57,7 +61,8 @@ app.get('/', (req, res) => {
       classes: '/api/classes',
       schedules: '/api/schedules',
       agendas: '/api/agendas',
-      clases: '/api/clases'
+      clases: '/api/clases',
+      citas: '/api/citas'
     }
   });
 });
