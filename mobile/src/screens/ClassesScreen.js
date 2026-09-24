@@ -66,6 +66,8 @@ export const ClassesScreen = ({ onBack }) => {
     if (res.success) {
       Alert.alert('Inscripción Exitosa', 'Tu cupo ha sido reservado correctamente.');
       await loadClasses(); // Actualización en tiempo real de aforos
+    } else if (res.status === 403 || res.error === 'NOT_A_PATIENT') {
+      Alert.alert('Acceso Denegado', res.message || 'Solo los alumnos/pacientes pueden inscribirse en clases grupales.');
     } else {
       Alert.alert('Aforo Completo', res.message || 'La clase ya no cuenta con cupos disponibles.');
       await loadClasses();

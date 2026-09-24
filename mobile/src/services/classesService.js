@@ -12,9 +12,27 @@ const getBackendHost = () => {
 
 const API_BASE_URL = getBackendHost();
 
+/**
+ * Normalizes raw API response objects into standard ClassItem data contract.
+ */
+export const normalizeClassItem = (item = {}) => ({
+  id_class: Number(item.id_class ?? item.id_clase ?? 0),
+  title: item.title || item.nombre_actividad || 'Taller Grupal',
+  description: item.description || item.descripcion || '',
+  instructor: item.instructor || 'Profesional SAPC',
+  available_slots: Number(item.available_slots ?? item.cupos_disponibles ?? 0),
+  max_capacity: Number(item.max_capacity ?? item.aforo_maximo ?? 0),
+  class_date: item.class_date || item.fecha_clase || '',
+  start_time: item.start_time || item.hora_inicio || '',
+  end_time: item.end_time || item.hora_fin || '',
+  location: item.location || item.ubicacion || 'Sala 1',
+  category: item.category || item.categoria || 'Todos',
+});
+
 export const classesService = {
   /**
    * GET /api/classes
+   * Retrieves group classes catalog and normalizes capacity data contract.
    */
   async getClasses() {
     try {
@@ -39,10 +57,13 @@ export const classesService = {
         };
       }
 
+      const rawItems = Array.isArray(data.data) ? data.data : [];
+      const normalizedItems = rawItems.map(normalizeClassItem);
+
       return {
         success: true,
-        data: data.data || [],
-        count: data.count || 0,
+        data: normalizedItems,
+        count: normalizedItems.length,
       };
     } catch (err) {
       console.error('Error en classesService.getClasses:', err);
@@ -57,6 +78,7 @@ export const classesService = {
 
   /**
    * POST /api/classes/:idClass/reserve
+   * Sends class enrollment request and returns updated slot status.
    */
   async reserveClass(idClass) {
     try {
