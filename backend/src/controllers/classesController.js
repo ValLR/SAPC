@@ -22,8 +22,7 @@ const getClasses = async (req, res) => {
               c.hora_inicio AS start_time,
               c.hora_fin AS end_time,
               c.estado_clase AS status,
-              COALESCE(c.ubicacion, 'Sala 1 (Planta Baja)') AS location,
-              COALESCE(c.categoria, 'Todos') AS category
+              COALESCE(c.sala, 'Sin sala asignada') AS location
          FROM clases_grupales c
          JOIN profesionales p ON p.id_profesional = c.id_instructor
          JOIN usuarios u ON u.id_usuario = p.id_usuario
@@ -47,7 +46,7 @@ const getClasses = async (req, res) => {
 
 /**
  * POST /api/classes/:id_class/reserve
- * Processes student reservation for a group class.
+ * Enrolls the authenticated patient in a group class (solo rol PACIENTE).
  * MySQL trigger trg_control_aforo_clases automatically decrements available_slots.
  */
 const reserveClass = async (req, res) => {
@@ -69,11 +68,19 @@ const reserveClass = async (req, res) => {
       [userId]
     );
 
-    let idPatient = patientRows[0]?.id_paciente;
+    const idPatient = patientRows[0]?.id_paciente;
 
+    // [R1] Una inscripción pertenece SIEMPRE a un paciente (entidad de
+    // dominio), nunca a un usuario cualquiera. Antes había un fallback que
+    // atribuía la inscripción al "paciente 1" cuando quien llamaba no era
+    // paciente (p. ej. un ADMINISTRADOR): eso creaba una inscripción falsa
+    // en silencio. Ahora se rechaza de forma explícita.
     if (!idPatient) {
-      const [fallbackPatients] = await pool.query(`SELECT id_paciente FROM pacientes LIMIT 1`);
-      idPatient = fallbackPatients[0]?.id_paciente || 1;
+      return res.status(403).json({
+        success: false,
+        message: 'Solo los pacientes pueden inscribirse en una clase grupal',
+        error: 'NOT_A_PATIENT',
+      });
     }
 
     // Check availability
@@ -93,16 +100,20 @@ const reserveClass = async (req, res) => {
     const currentClass = classRows[0];
 
     if (currentClass.cupos_disponibles <= 0) {
-      return res.status(409).json({
+      // US-09: el AC exige 400 Bad Request al rechazar por aforo agotado.
+      // Nota: 409 Conflict sería semánticamente equivalente (el conflicto
+      // es con el estado del recurso, no con la petición), pero el
+      // criterio de aceptación especifica 400 de forma explícita.
+      return res.status(400).json({
         success: false,
         message: 'La clase ya no cuenta con aforo disponible (Aforo Completo)',
         error: 'CLASS_FULL',
       });
     }
 
-    // Insert reservation
+    // Insert enrollment
     await pool.query(
-      `INSERT INTO reservas_clases (id_paciente, id_clase, estado_reserva) VALUES (?, ?, 'ACTIVA')`,
+      `INSERT INTO inscripciones_clases (id_paciente, id_clase, estado_inscripcion) VALUES (?, ?, 'ACTIVA')`,
       [idPatient, idClass]
     );
 
@@ -119,14 +130,31 @@ const reserveClass = async (req, res) => {
       data: updatedClass[0],
     });
   } catch (error) {
-    console.error('Error in reserveClass:', error);
-    if (error.message && error.message.includes('aforo')) {
-      return res.status(409).json({
+    // El trigger trg_control_aforo_clases aborta con SIGNAL SQLSTATE '45000'
+    // cuando la clase alcanza su aforo máximo.
+    // Se responde 400 por el AC de US-09 (ver nota en la validación previa).
+    if (error.sqlState === '45000') {
+      return res.status(400).json({
         success: false,
         message: 'La clase alcanzó su límite de capacidad (Aforo Completo)',
         error: 'CLASS_FULL',
       });
     }
+
+    // UNIQUE uq_paciente_clase: el paciente ya está inscrito en esta clase.
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        success: false,
+        message: 'Ya tienes una inscripción activa en esta clase',
+        error: 'ALREADY_RESERVED',
+      });
+    }
+
+    // Solo se registra lo que es un fallo real: los rechazos de negocio de
+    // arriba (aforo completo / duplicado) son resultados esperados y no
+    // deben ensuciar los logs con stack traces.
+    console.error('Error in reserveClass:', error);
+
     return res.status(500).json({
       success: false,
       message: 'Internal server error while reserving class',

@@ -18,7 +18,7 @@ USE chawal_db;
 -- ---------------------------------------------------------------------
 DELETE FROM comprobantes_pdf;
 DELETE FROM pagos;
-DELETE FROM reservas_clases;
+DELETE FROM inscripciones_clases;
 DELETE FROM clases_grupales;
 DELETE FROM novedades;
 DELETE FROM auditoria;
@@ -43,7 +43,7 @@ ALTER TABLE servicios              AUTO_INCREMENT = 1;
 ALTER TABLE bloques_horarios       AUTO_INCREMENT = 1;
 ALTER TABLE citas                  AUTO_INCREMENT = 1;
 ALTER TABLE clases_grupales        AUTO_INCREMENT = 1;
-ALTER TABLE reservas_clases        AUTO_INCREMENT = 1;
+ALTER TABLE inscripciones_clases   AUTO_INCREMENT = 1;
 ALTER TABLE pagos                  AUTO_INCREMENT = 1;
 ALTER TABLE comprobantes_pdf       AUTO_INCREMENT = 1;
 ALTER TABLE novedades              AUTO_INCREMENT = 1;
@@ -182,28 +182,28 @@ INSERT INTO clases_grupales
         1, 2, 2, '2026-11-07', '10:00:00', '11:00:00', 'PROGRAMADA');
 
 -- =====================================================================
--- §11  RESERVAS_CLASES  (inscripciones; el trigger decrementa cupos)
+-- §11  INSCRIPCIONES_CLASES  (el trigger decrementa cupos)
 --      Al insertar, cupos_disponibles baja automáticamente.
 -- =====================================================================
-INSERT INTO reservas_clases (id_reserva_clase, id_paciente, id_clase, estado_reserva) VALUES
+INSERT INTO inscripciones_clases (id_inscripcion, id_paciente, id_clase, estado_inscripcion) VALUES
     (1, 1, 1, 'ACTIVA'),   -- Pedro  (paciente 1) -> Taller 1 (cupos 3 -> 2)
     (2, 2, 1, 'ACTIVA'),   -- Ana    (paciente 2) -> Taller 1 (cupos 2 -> 1)
     (3, 3, 2, 'ACTIVA'),   -- Luis   (paciente 3) -> Taller 2 (cupos 5 -> 4)
     (4, 1, 2, 'ACTIVA');   -- Pedro  (paciente 1) -> Taller 2 (cupos 4 -> 3)
 
 -- =====================================================================
--- §12  PAGOS  (exclusividad XOR: cita individual O reserva de clase)
---      id_cita e id_reserva_clase son mutuamente excluyentes (CHECK).
+-- §12  PAGOS  (exclusividad XOR: cita individual O inscripción a taller)
+--      id_cita e id_inscripcion_clase son mutuamente excluyentes (CHECK).
 -- =====================================================================
 INSERT INTO pagos
-    (id_pago, id_cita, id_reserva_clase, monto, metodo_pago, estado_pago, referencia, fecha_pago) VALUES
+    (id_pago, id_cita, id_inscripcion_clase, monto, metodo_pago, estado_pago, referencia, fecha_pago) VALUES
     -- Pagos de citas individuales
     (1, 1, NULL, 25000.00, 'DEBITO',        'PAGADO',    'TRX-20261005-0001', '2026-10-05 09:10:00'),
     (2, 3, NULL, 22000.00, 'EFECTIVO',      'PAGADO',    'TRX-20261006-0002', '2026-10-06 10:05:00'),
     (3, 4, NULL, 30000.00, 'TRANSFERENCIA', 'PENDIENTE', NULL,                NULL),
     -- 'SEGURO' es el valor válido del ENUM metodo_pago (cubre FONASA/ISAPRE)
     (4, 6, NULL, 15000.00, 'SEGURO',        'PENDIENTE', NULL,                NULL),
-    -- Pagos de reservas de clase grupal (XOR: id_cita = NULL)
+    -- Pagos de inscripciones a talleres grupales (XOR: id_cita = NULL)
     (5, NULL, 1, 15000.00, 'DEBITO',        'PAGADO',    'TRX-20261017-0005', '2026-10-17 09:50:00'),
     (6, NULL, 3, 15000.00, 'EFECTIVO',      'PENDIENTE', NULL,                NULL);
 
@@ -307,8 +307,8 @@ JOIN   citas c ON c.id_bloque = b.id_bloque
 GROUP BY b.id_bloque, c.fecha_cita, c.hora_inicio, b.aforo_maximo
 ORDER BY b.id_bloque, c.fecha_cita, c.hora_inicio;
 
-SELECT '=== PAGOS (XOR cita | reserva) ===' AS seccion;
-SELECT id_pago, id_cita, id_reserva_clase, monto, metodo_pago, estado_pago FROM pagos;
+SELECT '=== PAGOS (XOR cita | inscripción) ===' AS seccion;
+SELECT id_pago, id_cita, id_inscripcion_clase, monto, metodo_pago, estado_pago FROM pagos;
 
 SELECT '=== CLASES GRUPALES (cupos tras reservas) ===' AS seccion;
 SELECT id_clase, nombre_actividad, sala, aforo_maximo, cupos_disponibles,
@@ -316,14 +316,14 @@ SELECT id_clase, nombre_actividad, sala, aforo_maximo, cupos_disponibles,
 FROM   clases_grupales
 ORDER BY id_clase;
 
-SELECT '=== RESERVAS DE CLASES ===' AS seccion;
-SELECT r.id_reserva_clase, CONCAT(u.nombre,' ',u.apellido) AS alumno,
-       c.nombre_actividad, r.estado_reserva, r.fecha_inscripcion
-FROM   reservas_clases r
+SELECT '=== INSCRIPCIONES A CLASES ===' AS seccion;
+SELECT r.id_inscripcion, CONCAT(u.nombre,' ',u.apellido) AS alumno,
+       c.nombre_actividad, r.estado_inscripcion, r.fecha_inscripcion
+FROM   inscripciones_clases r
 JOIN   pacientes       pa ON pa.id_paciente = r.id_paciente
 JOIN   usuarios        u  ON u.id_usuario   = pa.id_usuario
 JOIN   clases_grupales c  ON c.id_clase     = r.id_clase
-ORDER BY r.id_reserva_clase;
+ORDER BY r.id_inscripcion;
 
 SELECT '=== COMPROBANTES PDF (1:1 con pagos) ===' AS seccion;
 SELECT cp.id_comprobante, cp.id_transaccion, cp.codigo_verificacion,

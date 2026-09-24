@@ -9,8 +9,8 @@
 //    - Al crear, `cupos_disponibles` se inicializa con `aforo_maximo`.
 //    - El trigger trg_control_aforo_clases decrementa cupos al inscribirse.
 //    - El DELETE es LÓGICO (estado_clase = 'CANCELADA'): un borrado físico
-//      arrastraría las reservas por ON DELETE CASCADE.
-//    - `reservas_activas` y `disponible` se CALCULAN (no son columnas).
+//      arrastraría las inscripciones por ON DELETE CASCADE.
+//    - `inscripciones_activas` y `disponible` se CALCULAN (no son columnas).
 // =====================================================================
 
 const pool = require('../config/db');
@@ -57,7 +57,7 @@ const normalizarHora = (hora) => {
 const componerClase = (base) => {
   const aforo = Number(base.aforo_maximo);
   const cupos = Number(base.cupos_disponibles);
-  const reservas = Number(base.reservas_activas ?? 0);
+  const inscripciones = Number(base.inscripciones_activas ?? 0);
 
   return {
     id_clase: base.id_clase,
@@ -68,7 +68,7 @@ const componerClase = (base) => {
     instructor: base.instructor || null,
     aforo_maximo: aforo,
     cupos_disponibles: cupos,
-    reservas_activas: reservas,
+    inscripciones_activas: inscripciones,
     fecha_clase: base.fecha_clase,
     hora_inicio: base.hora_inicio,
     hora_fin: base.hora_fin,
@@ -91,7 +91,7 @@ const obtenerInstructor = async (idProfesional) => {
   return rows[0] || null;
 };
 
-/** Carga una clase por id con instructor y reservas activas */
+/** Carga una clase por id con instructor e inscripciones activas */
 const cargarClase = async (idClase) => {
   const [rows] = await pool.query(
     `SELECT c.id_clase, c.nombre_actividad, c.descripcion, c.sala,
@@ -99,9 +99,9 @@ const cargarClase = async (idClase) => {
             c.fecha_clase, c.hora_inicio, c.hora_fin, c.estado_clase,
             c.created_at, c.updated_at,
             CONCAT(u.nombre, ' ', u.apellido) AS instructor,
-            (SELECT COUNT(*) FROM reservas_clases r
+            (SELECT COUNT(*) FROM inscripciones_clases r
               WHERE r.id_clase = c.id_clase
-                AND r.estado_reserva = 'ACTIVA') AS reservas_activas
+                AND r.estado_inscripcion = 'ACTIVA') AS inscripciones_activas
        FROM clases_grupales c
        JOIN profesionales p ON p.id_profesional = c.id_instructor
        JOIN usuarios      u ON u.id_usuario     = p.id_usuario
@@ -305,9 +305,9 @@ const listarClases = async (req, res) => {
                       c.fecha_clase, c.hora_inicio, c.hora_fin, c.estado_clase,
                       c.created_at, c.updated_at,
                       CONCAT(u.nombre, ' ', u.apellido) AS instructor,
-                      (SELECT COUNT(*) FROM reservas_clases r
+                      (SELECT COUNT(*) FROM inscripciones_clases r
                         WHERE r.id_clase = c.id_clase
-                          AND r.estado_reserva = 'ACTIVA') AS reservas_activas
+                          AND r.estado_inscripcion = 'ACTIVA') AS inscripciones_activas
                  FROM clases_grupales c
                  JOIN profesionales p ON p.id_profesional = c.id_instructor
                  JOIN usuarios      u ON u.id_usuario     = p.id_usuario`;

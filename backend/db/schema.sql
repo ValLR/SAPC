@@ -18,8 +18,8 @@
 --   [R13] Aforo operativo único en bloques_horarios (servicios = nominal)
 --   [R14] Triggers validan coherencia bloque/día/rango/solapamiento y
 --         derivan es_grupal (no delegable a un INSERT directo)
---   [R15] Módulo de clases grupales + reservas con control de aforo por trigger
---   [R16] Pagos con exclusividad XOR (cita | reserva de clase)
+--   [R15] Módulo de clases grupales + inscripciones con control de aforo por trigger
+--   [R16] Pagos con exclusividad XOR (cita | inscripción a clase)
 --   [R17] comprobantes_pdf 1:1 con pagos (resuelve la duda del docente)
 --   [R18] novedades (contenido institucional)
 --   [R19] US-13: campo titulo_profesional + estado_disponibilidad operativa
@@ -38,7 +38,7 @@ USE chawal_db;
 DROP VIEW  IF EXISTS v_usuarios_roles;
 DROP TABLE IF EXISTS comprobantes_pdf;
 DROP TABLE IF EXISTS pagos;
-DROP TABLE IF EXISTS reservas_clases;
+DROP TABLE IF EXISTS inscripciones_clases;
 DROP TABLE IF EXISTS clases_grupales;
 DROP TABLE IF EXISTS novedades;
 DROP TABLE IF EXISTS auditoria;
@@ -310,7 +310,8 @@ CREATE TABLE citas (
     --      ⚠️  Este índice SÓLO detecta colisión de hora_inicio idéntica. El
     --      solapamiento PARCIAL de rangos (p.ej. 09:00-09:45 vs 09:30-10:15)
     --      lo valida el trigger trg_citas_bi_validacion, que es donde vive la
-    --      regla de "sin doble reserva de rango" (ver §20.1).
+    --      regla de "sin doble reserva de rango" la valida el trigger
+    --      trg_citas_bi_validacion (ver db/triggers/).
     slot_activo    TIME GENERATED ALWAYS AS (
                        CASE WHEN es_grupal = 1
                                  OR estado IN ('CANCELADA','NO_ASISTIO')
@@ -350,7 +351,10 @@ CREATE TABLE citas (
 -- =====================================================================
 -- §10  CLASES_GRUPALES  — talleres con aforo  [R15]
 --      Coexiste con `citas` (agenda individual). El aforo se controla
---      por trigger sobre `reservas_clases` (ver §20.4).
+--      por triggers sobre `inscripciones_clases` (ver db/triggers/):
+--        trg_control_aforo_clases   -> descuenta cupo al inscribirse
+--        trg_inscripcion_cupo_update -> devuelve/consume cupo [US-09]
+--        trg_inscripcion_cupo_delete -> devuelve cupo al eliminar [US-09]
 -- =====================================================================
 CREATE TABLE clases_grupales (
     id_clase          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
@@ -382,25 +386,26 @@ CREATE TABLE clases_grupales (
   COMMENT='Clases/talleres grupales con aforo controlado por trigger';
 
 -- =====================================================================
--- §11  RESERVAS_CLASES  — inscripciones a clases grupales  [R15]
+-- §11  INSCRIPCIONES_CLASES  — inscripciones a clases grupales  [R15]
 --      El trigger trg_control_aforo_clases valida cupo y decrementa.
+--      (La tarjeta US-09 nombra esta tabla `inscripciones_clases`.)
 -- =====================================================================
-CREATE TABLE reservas_clases (
-    id_reserva_clase   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE inscripciones_clases (
+    id_inscripcion     INT UNSIGNED NOT NULL AUTO_INCREMENT,
     -- [R1] El alumno es un PACIENTE (entidad de dominio), no un usuario
     --      cualquiera: así un ADMINISTRADOR o TERAPEUTA no puede inscribirse.
     --      Coherente con citas.id_paciente.
     id_paciente        INT UNSIGNED NOT NULL COMMENT '[R1] Paciente que se inscribe',
     id_clase           INT UNSIGNED NOT NULL,
     fecha_inscripcion  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    estado_reserva     ENUM('ACTIVA','CANCELADA') NOT NULL DEFAULT 'ACTIVA',
-    PRIMARY KEY (id_reserva_clase),
+    estado_inscripcion ENUM('ACTIVA','CANCELADA') NOT NULL DEFAULT 'ACTIVA',
+    PRIMARY KEY (id_inscripcion),
     UNIQUE KEY uq_paciente_clase (id_paciente, id_clase),
-    KEY ix_reservas_clase (id_clase),
-    CONSTRAINT fk_reservas_paciente
+    KEY ix_inscripciones_clase (id_clase),
+    CONSTRAINT fk_inscripciones_paciente
         FOREIGN KEY (id_paciente) REFERENCES pacientes (id_paciente)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_reservas_clase
+    CONSTRAINT fk_inscripciones_clase
         FOREIGN KEY (id_clase) REFERENCES clases_grupales (id_clase)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -413,8 +418,8 @@ CREATE TABLE reservas_clases (
 -- =====================================================================
 CREATE TABLE pagos (
     id_pago           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    id_cita           INT UNSIGNED  NULL COMMENT '[R16] XOR: cita individual',
-    id_reserva_clase  INT UNSIGNED  NULL COMMENT '[R16] XOR: reserva de clase grupal',
+    id_cita             INT UNSIGNED NULL COMMENT '[R16] XOR: cita individual',
+    id_inscripcion_clase INT UNSIGNED NULL COMMENT '[R16] XOR: inscripción a taller grupal',
     monto             DECIMAL(10,2) NOT NULL,
     metodo_pago       ENUM('EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA','SEGURO') NOT NULL DEFAULT 'EFECTIVO',
     estado_pago       ENUM('PENDIENTE','PAGADO','RECHAZADO','REEMBOLSADO') NOT NULL DEFAULT 'PENDIENTE',
@@ -423,25 +428,25 @@ CREATE TABLE pagos (
     created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id_pago),
-    UNIQUE KEY uq_pagos_cita          (id_cita),          -- 1:1 con cita
-    UNIQUE KEY uq_pagos_reserva_clase (id_reserva_clase), -- 1:1 con reserva
+    UNIQUE KEY uq_pagos_cita              (id_cita),              -- 1:1 con cita
+    UNIQUE KEY uq_pagos_inscripcion_clase (id_inscripcion_clase), -- 1:1 con inscripción
     KEY ix_pagos_estado_fecha (estado_pago, fecha_pago),
     -- ⚠️ MySQL 8.0 prohíbe acciones referenciales (CASCADE/SET NULL) en
     --    columnas usadas por un CHECK (error 3823). Como id_cita e
-    --    id_reserva_clase participan en chk_pago_servicio_exclusivo, sus
+    --    id_inscripcion_clase participan en chk_pago_servicio_exclusivo, sus
     --    FK deben ser RESTRICT. Además es lo correcto para registros
     --    financieros: un pago no debe borrarse en cascada.
     CONSTRAINT fk_pagos_cita
         FOREIGN KEY (id_cita) REFERENCES citas (id_cita)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT fk_pagos_reserva_clase
-        FOREIGN KEY (id_reserva_clase) REFERENCES reservas_clases (id_reserva_clase)
+    CONSTRAINT fk_pagos_inscripcion_clase
+        FOREIGN KEY (id_inscripcion_clase) REFERENCES inscripciones_clases (id_inscripcion)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT chk_pagos_monto CHECK (monto >= 0),
     -- [R16] Exclusividad estricta: exactamente uno de los dos destinos.
     CONSTRAINT chk_pago_servicio_exclusivo CHECK (
-        (id_cita IS NOT NULL AND id_reserva_clase IS NULL)
-     OR (id_cita IS NULL     AND id_reserva_clase IS NOT NULL)
+        (id_cita IS NOT NULL AND id_inscripcion_clase IS NULL)
+     OR (id_cita IS NULL     AND id_inscripcion_clase IS NOT NULL)
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Pagos con exclusividad XOR: cita individual o reserva de clase';
@@ -524,7 +529,7 @@ CREATE TABLE auditoria (
     id_usuario      INT UNSIGNED    NULL COMMENT 'Actor; NULL si el usuario fue borrado',
     tabla_afectada  ENUM('roles','usuarios','especialidades','profesionales','pacientes',
                          'profesional_especialidad','servicios','bloques_horarios',
-                         'citas','clases_grupales','reservas_clases','pagos',
+                         'citas','clases_grupales','inscripciones_clases','pagos',
                          'comprobantes_pdf','novedades','notificaciones','configuracion') NOT NULL,
     id_registro     BIGINT UNSIGNED NULL COMMENT '[R2] Referencia LÓGICA sin FK (polimorfismo controlado)',
     accion          ENUM('INSERT','UPDATE','DELETE','LOGIN','LOGOUT','LOGIN_FALLIDO') NOT NULL,
@@ -577,358 +582,33 @@ FROM    usuarios u
 JOIN    roles    r ON r.id_rol = u.id_rol;
 
 -- =====================================================================
--- §19  STORED PROCEDURE TRANSACCIONAL — sp_agendar_cita  [R10]
---      Bloqueo pesimista + validación de aforo + rollback atómico
+-- LIMPIEZA DE OBJETOS PROGRAMABLES (idempotencia)
+-- ---------------------------------------------------------------------
+-- Los CREATE de stored procedures y triggers ya NO viven en este
+-- archivo: están separados por responsabilidad en:
+--     db/stored_procedures/*.sql
+--     db/triggers/*.sql
+--
+-- Ejecutar `npm run db:setup` para crear tablas + SP + triggers + seed
+-- en el orden correcto. Este bloque deja la BD sin objetos programables
+-- para que una re-ejecución de schema.sql no arrastre versiones previas.
 -- =====================================================================
 DROP PROCEDURE IF EXISTS sp_agendar_cita;
 
-DELIMITER //
-
-CREATE PROCEDURE sp_agendar_cita (
-    IN  p_id_paciente    INT UNSIGNED,
-    IN  p_id_profesional INT UNSIGNED,
-    IN  p_id_servicio    INT UNSIGNED,
-    IN  p_id_bloque      INT UNSIGNED,
-    IN  p_fecha          DATE,
-    IN  p_hora_inicio    TIME,
-    OUT p_id_cita        INT UNSIGNED,
-    OUT p_mensaje        VARCHAR(255)
-)
-BEGIN
-    DECLARE v_duracion     SMALLINT UNSIGNED DEFAULT 0;
-    DECLARE v_aforo        SMALLINT UNSIGNED DEFAULT 0;
-    DECLARE v_ocupados     INT DEFAULT 0;
-    DECLARE v_hora_fin     TIME;
-    DECLARE v_bloque_ini   TIME;
-    DECLARE v_bloque_fin   TIME;
-    DECLARE v_dia_bloque   TINYINT UNSIGNED;
-    DECLARE v_servicio_ok  TINYINT DEFAULT 0;
-    DECLARE v_prof_ok      TINYINT DEFAULT 0;
-
-    -- Rollback atomico ante cualquier excepcion
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-        SET p_id_cita = NULL;
-        SET p_mensaje = 'ERROR: transaccion revertida (ROLLBACK)';
-        RESIGNAL;
-    END;
-
-    SET p_id_cita = NULL;
-
-    START TRANSACTION;
-
-    -- 1) Validar servicio activo y obtener duracion
-    SELECT duracion_min, 1
-      INTO v_duracion, v_servicio_ok
-      FROM servicios
-     WHERE id_servicio = p_id_servicio
-       AND activo = 1
-     FOR UPDATE;
-
-    IF v_servicio_ok = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Servicio inexistente o inactivo';
-    END IF;
-
-    -- 2) Validar profesional activo
-    SELECT 1 INTO v_prof_ok
-      FROM profesionales
-     WHERE id_profesional = p_id_profesional
-       AND activo = 1
-     FOR UPDATE;
-
-    IF v_prof_ok = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Profesional inexistente o inactivo';
-    END IF;
-
-    -- 3) Bloquear el bloque horario y leer su aforo dinamico
-    SELECT aforo_maximo, hora_inicio, hora_fin, dia_semana
-      INTO v_aforo, v_bloque_ini, v_bloque_fin, v_dia_bloque
-      FROM bloques_horarios
-     WHERE id_bloque = p_id_bloque
-       AND id_profesional = p_id_profesional
-       AND activo = 1
-     FOR UPDATE;
-
-    IF v_aforo = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Bloque horario invalido para el profesional';
-    END IF;
-
-    -- 3.1) La hora solicitada debe caer dentro del rango del bloque
-    IF p_hora_inicio < v_bloque_ini OR p_hora_inicio >= v_bloque_fin THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La hora solicitada esta fuera del rango del bloque';
-    END IF;
-
-    -- 3.2) La fecha debe corresponder al dia de semana del bloque (ISO 1-7)
-    IF (WEEKDAY(p_fecha) + 1) <> v_dia_bloque THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La fecha no corresponde al dia de la semana del bloque';
-    END IF;
-
-    -- 4) Calcular hora de termino
-    SET v_hora_fin = ADDTIME(p_hora_inicio, SEC_TO_TIME(v_duracion * 60));
-
-    -- 4.1) La cita no puede exceder el termino del bloque
-    IF v_hora_fin > v_bloque_fin THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La duracion del servicio excede el bloque horario';
-    END IF;
-
-    -- 5) Contar citas vigentes del MISMO slot
-    SELECT COUNT(*)
-      INTO v_ocupados
-      FROM citas
-     WHERE id_bloque   = p_id_bloque
-       AND fecha_cita  = p_fecha
-       AND hora_inicio = p_hora_inicio
-       AND estado NOT IN ('CANCELADA','NO_ASISTIO');
-
-    IF v_ocupados >= v_aforo THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Aforo maximo alcanzado para el bloque';
-    END IF;
-
-    -- 6) Insertar la cita
-    INSERT INTO citas (
-        id_paciente, id_profesional, id_servicio, id_bloque,
-        fecha_cita, hora_inicio, hora_fin, estado
-    ) VALUES (
-        p_id_paciente, p_id_profesional, p_id_servicio, p_id_bloque,
-        p_fecha, p_hora_inicio, v_hora_fin, 'PENDIENTE'
-    );
-
-    SET p_id_cita = LAST_INSERT_ID();
-    SET p_mensaje = CONCAT('Cita agendada correctamente. ID=', p_id_cita);
-
-    COMMIT;
-END //
-
-DELIMITER ;
-
--- =====================================================================
--- §20  TRIGGERS — validación de coherencia + aforo + auditoría  [R11][R14][R15]
---      Se consolidan en un único BEFORE INSERT / BEFORE UPDATE para evitar
---      dependencias de orden entre triggers y garantizar que TODA ruta de
---      escritura (SP o INSERT directo) queda validada.
--- =====================================================================
 DROP TRIGGER IF EXISTS trg_citas_bi_validacion;
 DROP TRIGGER IF EXISTS trg_citas_bu_validacion;
 DROP TRIGGER IF EXISTS trg_citas_ai_auditoria;
 DROP TRIGGER IF EXISTS trg_control_aforo_clases;
+
+-- [US-09] Control de aforo bidireccional en inscripciones_clases
+DROP TRIGGER IF EXISTS trg_inscripcion_cupo_update;
+DROP TRIGGER IF EXISTS trg_inscripcion_cupo_delete;
+
 -- nombres legados (idempotencia si existían de una versión previa)
 DROP TRIGGER IF EXISTS trg_citas_bi_aforo;
 DROP TRIGGER IF EXISTS trg_citas_bu_aforo;
-
-DELIMITER //
-
--- 20.1 BEFORE INSERT: coherencia bloque/día/rango + aforo + solapamiento
-CREATE TRIGGER trg_citas_bi_validacion
-BEFORE INSERT ON citas
-FOR EACH ROW
-BEGIN
-    DECLARE v_aforo       SMALLINT UNSIGNED DEFAULT 1;
-    DECLARE v_dia_bloque  TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_ini_bloque  TIME DEFAULT NULL;
-    DECLARE v_fin_bloque  TIME DEFAULT NULL;
-    DECLARE v_prof_bloque INT UNSIGNED DEFAULT NULL;
-    DECLARE v_ocupados    INT DEFAULT 0;
-    DECLARE v_solapes     INT DEFAULT 0;
-
-    IF NEW.id_bloque IS NOT NULL THEN
-
-        -- (a) Cargar el bloque y validar que pertenece al MISMO profesional.
-        SELECT aforo_maximo, dia_semana, hora_inicio, hora_fin, id_profesional
-          INTO v_aforo, v_dia_bloque, v_ini_bloque, v_fin_bloque, v_prof_bloque
-          FROM bloques_horarios
-         WHERE id_bloque = NEW.id_bloque;
-
-        IF v_prof_bloque IS NULL THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'Bloque horario inexistente';
-        END IF;
-
-        IF v_prof_bloque <> NEW.id_profesional THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'El bloque no pertenece al profesional de la cita';
-        END IF;
-
-        -- (b) El día de la semana de la fecha debe coincidir con el del bloque.
-        --     WEEKDAY() = 0 (lunes) .. 6 (domingo) -> +1 => ISO-8601.
-        IF (WEEKDAY(NEW.fecha_cita) + 1) <> v_dia_bloque THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'La fecha no corresponde al día de la semana del bloque';
-        END IF;
-
-        -- (c) La cita debe caer dentro del rango horario del bloque.
-        IF NEW.hora_inicio < v_ini_bloque OR NEW.hora_fin > v_fin_bloque THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'La cita está fuera del rango del bloque horario';
-        END IF;
-
-        -- (d) [R14] Derivar es_grupal del aforo del bloque (no delegable al
-        --     llamador): aforo > 1 => grupal. Así un INSERT directo con
-        --     es_grupal=0 en un bloque grupal no puede romper el índice.
-        SET NEW.es_grupal = CASE WHEN v_aforo > 1 THEN 1 ELSE 0 END;
-    END IF;
-
-    -- Sólo las citas VIGENTES ocupan cupo/slot.
-    IF NEW.estado NOT IN ('CANCELADA','NO_ASISTIO') THEN
-
-        IF NEW.es_grupal = 1 THEN
-            -- (e) Cupo grupal: se cuentan las vigentes del MISMO slot exacto.
-            SELECT COUNT(*) INTO v_ocupados
-              FROM citas
-             WHERE id_profesional = NEW.id_profesional
-               AND fecha_cita     = NEW.fecha_cita
-               AND hora_inicio    = NEW.hora_inicio
-               AND estado NOT IN ('CANCELADA','NO_ASISTIO');
-
-            IF v_ocupados >= v_aforo THEN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Aforo máximo alcanzado para el bloque (trigger)';
-            END IF;
-        ELSE
-            -- (f) [R14] Slot individual: se prohíbe SOLAPAMIENTO de rangos
-            --     (no sólo inicio idéntico). Cubre 09:00-09:45 vs 09:30-10:15.
-            SELECT COUNT(*) INTO v_solapes
-              FROM citas
-             WHERE id_profesional = NEW.id_profesional
-               AND fecha_cita     = NEW.fecha_cita
-               AND estado NOT IN ('CANCELADA','NO_ASISTIO')
-               AND NEW.hora_inicio < hora_fin
-               AND NEW.hora_fin    > hora_inicio;
-
-            IF v_solapes > 0 THEN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Solapamiento horario con otra cita vigente del profesional';
-            END IF;
-        END IF;
-    END IF;
-END //
-
--- 20.2 BEFORE UPDATE: mismas validaciones al mover o reactivar una cita
-CREATE TRIGGER trg_citas_bu_validacion
-BEFORE UPDATE ON citas
-FOR EACH ROW
-BEGIN
-    DECLARE v_aforo       SMALLINT UNSIGNED DEFAULT 1;
-    DECLARE v_dia_bloque  TINYINT UNSIGNED DEFAULT NULL;
-    DECLARE v_ini_bloque  TIME DEFAULT NULL;
-    DECLARE v_fin_bloque  TIME DEFAULT NULL;
-    DECLARE v_prof_bloque INT UNSIGNED DEFAULT NULL;
-    DECLARE v_ocupados    INT DEFAULT 0;
-    DECLARE v_solapes     INT DEFAULT 0;
-
-    IF NEW.id_bloque IS NOT NULL THEN
-
-        SELECT aforo_maximo, dia_semana, hora_inicio, hora_fin, id_profesional
-          INTO v_aforo, v_dia_bloque, v_ini_bloque, v_fin_bloque, v_prof_bloque
-          FROM bloques_horarios
-         WHERE id_bloque = NEW.id_bloque;
-
-        IF v_prof_bloque IS NULL THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'Bloque horario inexistente';
-        END IF;
-
-        IF v_prof_bloque <> NEW.id_profesional THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'El bloque no pertenece al profesional de la cita';
-        END IF;
-
-        IF (WEEKDAY(NEW.fecha_cita) + 1) <> v_dia_bloque THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'La fecha no corresponde al día de la semana del bloque';
-        END IF;
-
-        IF NEW.hora_inicio < v_ini_bloque OR NEW.hora_fin > v_fin_bloque THEN
-            SIGNAL SQLSTATE '45000'
-                SET MESSAGE_TEXT = 'La cita está fuera del rango del bloque horario';
-        END IF;
-
-        SET NEW.es_grupal = CASE WHEN v_aforo > 1 THEN 1 ELSE 0 END;
-    END IF;
-
-    IF NEW.estado NOT IN ('CANCELADA','NO_ASISTIO') THEN
-
-        IF NEW.es_grupal = 1 THEN
-            SELECT COUNT(*) INTO v_ocupados
-              FROM citas
-             WHERE id_profesional = NEW.id_profesional
-               AND fecha_cita     = NEW.fecha_cita
-               AND hora_inicio    = NEW.hora_inicio
-               AND estado NOT IN ('CANCELADA','NO_ASISTIO')
-               AND id_cita <> NEW.id_cita;
-
-            IF v_ocupados >= v_aforo THEN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'No se puede reactivar: aforo máximo alcanzado';
-            END IF;
-        ELSE
-            SELECT COUNT(*) INTO v_solapes
-              FROM citas
-             WHERE id_profesional = NEW.id_profesional
-               AND fecha_cita     = NEW.fecha_cita
-               AND estado NOT IN ('CANCELADA','NO_ASISTIO')
-               AND id_cita <> NEW.id_cita
-               AND NEW.hora_inicio < hora_fin
-               AND NEW.hora_fin    > hora_inicio;
-
-            IF v_solapes > 0 THEN
-                SIGNAL SQLSTATE '45000'
-                    SET MESSAGE_TEXT = 'Solapamiento horario con otra cita vigente del profesional';
-            END IF;
-        END IF;
-    END IF;
-END //
-
--- 20.3 AFTER INSERT: registra el evento en auditoría
-CREATE TRIGGER trg_citas_ai_auditoria
-AFTER INSERT ON citas
-FOR EACH ROW
-BEGIN
-    INSERT INTO auditoria (id_usuario, tabla_afectada, id_registro, accion, detalle)
-    VALUES (
-        NULL,
-        'citas',
-        NEW.id_cita,
-        'INSERT',
-        JSON_OBJECT(
-            'id_paciente',    NEW.id_paciente,
-            'id_profesional', NEW.id_profesional,
-            'id_servicio',    NEW.id_servicio,
-            'fecha_cita',     NEW.fecha_cita,
-            'hora_inicio',    NEW.hora_inicio,
-            'estado',         NEW.estado
-        )
-    );
-END //
-
--- 20.4 [R15] BEFORE INSERT en reservas_clases: control de aforo + decremento
---      atómico de cupos. Si no hay cupo, aborta con SIGNAL SQLSTATE '45000'.
-CREATE TRIGGER trg_control_aforo_clases
-BEFORE INSERT ON reservas_clases
-FOR EACH ROW
-BEGIN
-    DECLARE v_cupos INT DEFAULT 0;
-
-    -- Bloqueo pesimista de la fila de la clase para evitar sobreventa
-    -- bajo concurrencia (dos inscripciones simultáneas al último cupo).
-    SELECT cupos_disponibles
-      INTO v_cupos
-      FROM clases_grupales
-     WHERE id_clase = NEW.id_clase
-     FOR UPDATE;
-
-    IF v_cupos <= 0 THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Aforo máximo alcanzado para la clase grupal';
-    END IF;
-
-    -- Decremento atómico del cupo disponible.
-    UPDATE clases_grupales
-       SET cupos_disponibles = cupos_disponibles - 1
-     WHERE id_clase = NEW.id_clase;
-END //
-
-DELIMITER ;
+DROP TRIGGER IF EXISTS trg_reserva_cupo_update;
+DROP TRIGGER IF EXISTS trg_reserva_cupo_delete;
 
 -- =====================================================================
 -- FIN DEL SCRIPT — schema.sql
