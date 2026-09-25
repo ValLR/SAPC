@@ -7,6 +7,7 @@ import DashboardPage from '../pages/DashboardPage';
 import ProfesionalesPage from '../pages/ProfesionalesPage';
 import ScheduleConfigPage from '../pages/ScheduleConfigPage';
 import TalleresPage from '../pages/TalleresPage';
+import ReportesPage from '../pages/ReportesPage';
 import PlaceholderPage from '../pages/PlaceholderPage';
 
 /**
@@ -29,16 +30,7 @@ export const AppRoutes = () => {
 
             <Route path="/talleres" element={<TalleresPage />} />
 
-            <Route
-              path="/reportes"
-              element={
-                <PlaceholderPage
-                  code="US-17"
-                  title="Reportería y Métricas en Línea"
-                  description="Módulo para generación de estadísticas de atención, volumen de agendamientos e indicadores financieros."
-                />
-              }
-            />
+            <Route path="/reportes" element={<ReportesPage />} />
           </Route>
         </Route>
 
