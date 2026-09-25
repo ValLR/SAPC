@@ -47,13 +47,22 @@ export const reportsWebService = {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          return {
+            success: false,
+            status: 401,
+            message: 'Sesión expirada o no autorizada. Por favor inicie sesión nuevamente.',
+            citas: null,
+            ocupacionClases: null,
+          };
+        }
         if (response.status === 403) {
           return {
             success: false,
             status: 403,
             message: 'Acceso denegado. Se requieren privilegios de Administrador (RBAC).',
             citas: null,
-            ocupacion_clases: null,
+            ocupacionClases: null,
           };
         }
         return {
@@ -61,7 +70,7 @@ export const reportsWebService = {
           status: response.status,
           message: data.message || 'Error al obtener el reporte de ocupación',
           citas: null,
-          ocupacion_clases: null,
+          ocupacionClases: null,
         };
       }
 

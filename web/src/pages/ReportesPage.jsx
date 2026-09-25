@@ -83,6 +83,11 @@ export const ReportesPage = () => {
           </div>
           <p className="reportes-subtitle">
             Demanda de atenciones individuales y nivel de ocupación de talleres comunitarios (US-17)
+            {reportData.generadoEn && (
+              <span className="reportes-timestamp">
+                {' '}• Generado: {new Date(reportData.generadoEn).toLocaleString('es-CL')}
+              </span>
+            )}
           </p>
         </div>
 

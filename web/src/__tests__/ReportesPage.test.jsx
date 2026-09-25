@@ -117,4 +117,22 @@ describe('ReportesPage Component (US-17)', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('despliega mensaje amigable cuando ocurre un error de red o servidor', async () => {
+    reportsWebService.getOccupancyReport.mockResolvedValueOnce({
+      success: false,
+      status: 500,
+      message: 'No fue posible cargar las métricas en este momento',
+      citas: null,
+      ocupacionClases: null,
+    });
+
+    render(<ReportesPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/No fue posible cargar las métricas en este momento/i)
+      ).toBeInTheDocument();
+    });
+  });
 });
