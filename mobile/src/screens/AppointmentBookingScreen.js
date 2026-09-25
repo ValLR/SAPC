@@ -9,18 +9,25 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../theme/colors';
+import paymentsService from '../services/paymentsService';
 
 const LOGO_ICON = require('../../assets/logo-icon.png');
 
 export const AppointmentBookingScreen = ({ onBack }) => {
-  // Pasos: 1 = Buscar Terapeuta, 2 = Seleccionar Fecha y Hora, 3 = Confirmada
+
   const [step, setStep] = useState(1);
   const [selectedSpecialty, setSelectedSpecialty] = useState('Todos');
   const [selectedTerapeuta, setSelectedTerapeuta] = useState(null);
   const [selectedDay, setSelectedDay] = useState(23); // Mié 23
   const [selectedSlot, setSelectedSlot] = useState('10:00 - 10:45');
+  const [paymentMethod, setPaymentMethod] = useState('WEBPAY');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
 
   const terapeutasMock = [
     {
@@ -55,8 +62,32 @@ export const AppointmentBookingScreen = ({ onBack }) => {
     setStep(2);
   };
 
-  const handleConfirmAppointment = () => {
+  const handleGoToCheckout = () => {
     setStep(3);
+  };
+
+  const handleCancelCheckout = async () => {
+    // Escenario 2 Gherkin: libera el bloque y vuelve al resumen/calendario
+    await paymentsService.cancelAppointmentHold(1);
+    setStep(2);
+  };
+
+  const handleProcessPayment = async () => {
+    setIsProcessingPayment(true);
+
+    const res = await paymentsService.simulatePayment(1, {
+      monto: 25000,
+      metodoPago: paymentMethod,
+    });
+
+    setIsProcessingPayment(false);
+
+    if (res.success) {
+      setPaymentReceipt(res);
+      setStep(4);
+    } else {
+      Alert.alert('Error de Pago', res.message || 'No se pudo procesar el pago ficticio.');
+    }
   };
 
   return (
@@ -65,8 +96,15 @@ export const AppointmentBookingScreen = ({ onBack }) => {
       <View style={styles.container}>
         {/* Header con Logo Icon sin letras */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={step === 1 ? onBack : () => setStep(step - 1)} style={styles.backButton}>
-            <Text style={styles.backIcon}>‹</Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (step === 1) onBack();
+              else if (step === 3) handleCancelCheckout();
+              else setStep(step - 1);
+            }}
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
           </TouchableOpacity>
           <Image source={LOGO_ICON} style={styles.logoIcon} resizeMode="contain" />
           <View style={{ width: 40 }} />
@@ -103,48 +141,48 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 ))}
               </View>
 
-              <Text style={styles.sectionSub}>Terapeutas disponibles:</Text>
+              <Text style={styles.sectionTitle}>Terapeutas disponibles:</Text>
 
               {/* Lista de Terapeutas */}
-              {terapeutasMock.map((item) => (
-                <View key={item.id} style={styles.terapeutaCard}>
-                  <View style={styles.terapeutaInfo}>
-                    <View style={styles.avatarCircle}>
-                      <Text style={{ fontSize: 20 }}>👩‍⚕️</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.terapeutaName}>{item.name}</Text>
-                      <Text style={styles.terapeutaSpec}>{item.specialty}</Text>
-                    </View>
+              {terapeutasMock.map((t) => (
+                <View key={t.id} style={styles.terapeutaCard}>
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={{ fontSize: 24 }}>👩‍⚕️</Text>
                   </View>
-
-                  <TouchableOpacity style={styles.verHorariosBtn} onPress={() => handleSelectTerapeuta(item)}>
-                    <Text style={styles.verHorariosBtnText}>Ver Horarios</Text>
-                  </TouchableOpacity>
+                  <View style={styles.terapeutaInfo}>
+                    <Text style={styles.terapeutaName}>{t.name}</Text>
+                    <Text style={styles.terapeutaSub}>{t.specialty}</Text>
+                    <TouchableOpacity style={styles.btnHorarios} onPress={() => handleSelectTerapeuta(t)}>
+                      <Text style={styles.btnHorariosText}>Ver Horarios</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
           )}
 
           {/* PASO 2: Selecciona Fecha y Hora */}
-          {step === 2 && selectedTerapeuta && (
+          {step === 2 && (
             <View>
               <Text style={styles.screenTitle}>Selecciona Fecha y Hora</Text>
 
-              {/* Card Terapeuta Seleccionado */}
-              <View style={styles.selectedTerapeutaCard}>
-                <View style={styles.avatarCircle}>
+              {/* Card de Terapeuta seleccionado */}
+              <View style={styles.selectedHeaderCard}>
+                <View style={styles.avatarPlaceholderSmall}>
                   <Text style={{ fontSize: 20 }}>👩‍⚕️</Text>
                 </View>
                 <View>
-                  <Text style={styles.terapeutaName}>{selectedTerapeuta.name}</Text>
-                  <Text style={styles.terapeutaSpec}>{selectedTerapeuta.specialty}</Text>
+                  <Text style={styles.selectedName}>{selectedTerapeuta?.name}</Text>
+                  <Text style={styles.selectedSub}>{selectedTerapeuta?.specialty}</Text>
                 </View>
               </View>
 
-              {/* Calendario Fila */}
-              <Text style={styles.calendarMonth}>Septiembre 2026</Text>
-              <View style={styles.calendarRow}>
+              {/* Selector Semanal */}
+              <View style={styles.weekSelectorHeader}>
+                <Text style={styles.monthTitle}>Septiembre 2026</Text>
+              </View>
+
+              <View style={styles.daysRow}>
                 {[
                   { day: 'Lun', num: 21 },
                   { day: 'Mar', num: 22 },
@@ -191,23 +229,116 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 ))}
               </View>
 
-              <TouchableOpacity style={styles.primaryActionBtn} onPress={handleConfirmAppointment}>
-                <Text style={styles.primaryActionBtnText}>Continuar</Text>
+              <TouchableOpacity style={styles.primaryActionBtn} onPress={handleGoToCheckout}>
+                <Text style={styles.primaryActionBtnText}>Continuar al Pago</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* PASO 3: Cita Confirmada con Éxito */}
+          {/* PASO 3: Checkout de Pago Simulado (US-16) */}
           {step === 3 && (
-            <View style={{ alignItems: 'center', paddingTop: 20 }}>
+            <View>
+              <Text style={styles.screenTitle}>Pago de Consulta Médica</Text>
+
+              {/* Card de Resumen de Arancel */}
+              <View style={styles.checkoutSummaryCard}>
+                <Text style={styles.checkoutCardTitle}>Resumen de la Cita</Text>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Especialista:</Text>
+                  <Text style={styles.detailValue}>{selectedTerapeuta?.name || 'Dra. Camila Morales'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Especialidad:</Text>
+                  <Text style={styles.detailValue}>{selectedTerapeuta?.specialty || 'Psicología Clínica'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Fecha y Hora:</Text>
+                  <Text style={styles.detailValue}>
+                    Miércoles {selectedDay} de Septiembre, {selectedSlot} hrs
+                  </Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Arancel Consulta:</Text>
+                  <Text style={styles.priceValue}>$25.000 CLP</Text>
+                </View>
+              </View>
+
+              {/* Selector de Método de Pago */}
+              <Text style={styles.sectionTitle}>Método de Pago Ficticio:</Text>
+
+              <TouchableOpacity
+                style={[styles.methodOption, paymentMethod === 'WEBPAY' && styles.methodOptionActive]}
+                onPress={() => setPaymentMethod('WEBPAY')}
+              >
+                <Text style={styles.radioDot}>{paymentMethod === 'WEBPAY' ? '◉' : '◯'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.methodTitle}>WebPay / Débito Simulado (Transbank)</Text>
+                  <Text style={styles.methodSub}>Simulación instantánea de tarjeta de débito</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.methodOption, paymentMethod === 'TRANSFER' && styles.methodOptionActive]}
+                onPress={() => setPaymentMethod('TRANSFER')}
+              >
+                <Text style={styles.radioDot}>{paymentMethod === 'TRANSFER' ? '◉' : '◯'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.methodTitle}>Transferencia Ficticia</Text>
+                  <Text style={styles.methodSub}>Validación simulada de transferencia bancaria</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.disclaimerBox}>
+                <Text style={styles.disclaimerText}>
+                  ℹ️ Entorno de pruebas: No se realizará ningún cargo bancario real a tu cuenta.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.primaryActionBtn}
+                onPress={handleProcessPayment}
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionBtnText}>Pagar Reserva ($25.000)</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.secondaryActionBtn}
+                onPress={handleCancelCheckout}
+                disabled={isProcessingPayment}
+              >
+                <Text style={styles.secondaryActionBtnText}>Volver al resumen</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* PASO 4: Comprobante Visual de Pago y Confirmación (US-16) */}
+          {step === 4 && (
+            <View style={{ alignItems: 'center', paddingTop: 10 }}>
               <View style={styles.successIconCircle}>
                 <Text style={{ fontSize: 36, color: '#FFFFFF' }}>✓</Text>
               </View>
 
               <Text style={styles.screenTitle}>¡Cita Confirmada con Éxito!</Text>
 
+              <View style={styles.receiptBadge}>
+                <Text style={styles.receiptBadgeText}>Estado: Confirmada / Pagada</Text>
+              </View>
+
               <View style={styles.confirmationCard}>
-                <Text style={styles.confirmHeader}>Detalles de la Cita:</Text>
+                <Text style={styles.confirmHeader}>Detalles del Comprobante:</Text>
+                <Text style={styles.confirmLine}>
+                  <Text style={{ fontWeight: '700' }}>N° Operación: </Text>
+                  {paymentReceipt?.operationCode || '#TX-98432-CH'}
+                </Text>
                 <Text style={styles.confirmLine}>
                   <Text style={{ fontWeight: '700' }}>Especialista: </Text>
                   {selectedTerapeuta?.name}
@@ -229,14 +360,13 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                   Centro Chawal Quillota (Presencial)
                 </Text>
                 <Text style={styles.confirmLine}>
-                  <Text style={{ fontWeight: '700' }}>Paciente: </Text>
-                  Juan Pérez
+                  <Text style={{ fontWeight: '700' }}>Monto Pagado: </Text>
+                  $25.000 CLP
                 </Text>
-                <Text style={styles.confirmStatus}>Estado: Confirmada</Text>
               </View>
 
               <TouchableOpacity style={styles.primaryActionBtn} onPress={() => setStep(1)}>
-                <Text style={styles.primaryActionBtnText}>Simular Pago</Text>
+                <Text style={styles.primaryActionBtnText}>Reservar Otra Cita</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.secondaryActionBtn} onPress={onBack}>
@@ -251,8 +381,14 @@ export const AppointmentBookingScreen = ({ onBack }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  container: { flex: 1, backgroundColor: colors.neutral.background },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: colors.neutral.background,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -272,15 +408,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { fontSize: 24, fontWeight: '700', color: colors.text.primary, marginTop: -2 },
-  logoIcon: { width: 36, height: 36 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 30 },
+  backIcon: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginTop: -2,
+  },
+  logoIcon: {
+    width: 36,
+    height: 36,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
   screenTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: colors.text.primary,
     textAlign: 'center',
-    marginVertical: 16,
+    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -290,53 +437,208 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral.border,
     borderRadius: 12,
     paddingHorizontal: 12,
-    marginBottom: 14,
+    height: 46,
+    marginBottom: 16,
   },
-  searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: { flex: 1, height: 44, fontSize: 14, color: colors.text.primary },
-  categoriesRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+  categoriesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.neutral.border,
-    backgroundColor: '#FFFFFF',
-  },
-  chipActive: { backgroundColor: colors.primary.main, borderColor: colors.primary.main },
-  chipText: { fontSize: 12, fontWeight: '600', color: colors.text.secondary },
-  chipTextActive: { color: '#FFFFFF' },
-  sectionSub: { fontSize: 14, fontWeight: '600', color: colors.text.secondary, marginBottom: 12 },
-  terapeutaCard: {
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 6,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.neutral.border,
+    backgroundColor: '#FFFFFF',
   },
-  terapeutaInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary.background,
+  chipActive: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginBottom: 12,
+  },
+  terapeutaCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.neutral.background,
+    alignItems: 'center',
+    justify.content: 'center',
+    marginRight: 12,
+  },
+  terapeutaInfo: {
+    flex: 1,
+  },
+  terapeutaName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  terapeutaSub: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: 8,
+  },
+  btnHorarios: {
+    backgroundColor: colors.primary.main,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  btnHorariosText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectedHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+  },
+  avatarPlaceholderSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.neutral.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  terapeutaName: { fontSize: 16, fontWeight: '700', color: colors.text.primary },
-  terapeutaSpec: { fontSize: 13, color: colors.text.secondary },
-  verHorariosBtn: {
-    backgroundColor: colors.primary.main,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
+  selectedName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text.primary,
   },
-  verHorariosBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
-  selectedTerapeutaCard: {
-    flexDirection: 'row',
+  selectedSub: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  weekSelectorHeader: {
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  monthTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  dayItem: {
+    width: 55,
+    height: 65,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.neutral.border,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayItemActive: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  dayLabel: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  dayLabelActive: {
+    color: '#FFFFFF',
+  },
+  dayNum: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginTop: 2,
+  },
+  dayNumActive: {
+    color: '#FFFFFF',
+  },
+  sectionSub: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  slotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  slotBtn: {
+    width: '48%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  slotActive: {
+    backgroundColor: colors.primary.main,
+  },
+  slotDisabled: {
+    borderColor: colors.neutral.border,
+    backgroundColor: '#F3F4F6',
+  },
+  slotText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  slotTextActive: {
+    color: '#FFFFFF',
+  },
+  slotTextDisabled: {
+    color: colors.text.disabled,
+    textDecorationLine: 'line-through',
+  },
+  /* Estilos de Checkout US-16 */
+  checkoutSummaryCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -344,75 +646,147 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral.border,
     marginBottom: 20,
   },
-  calendarMonth: { fontSize: 16, fontWeight: '700', color: colors.text.primary, marginBottom: 12, textAlign: 'center' },
-  calendarRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  dayItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  checkoutCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.neutral.border,
+    marginVertical: 10,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  priceValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.primary.main,
+  },
+  methodOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colors.neutral.border,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-  },
-  dayItemActive: { backgroundColor: colors.primary.main, borderColor: colors.primary.main },
-  dayLabel: { fontSize: 12, color: colors.text.secondary },
-  dayLabelActive: { color: '#FFFFFF' },
-  dayNum: { fontSize: 16, fontWeight: '700', color: colors.text.primary },
-  dayNumActive: { color: '#FFFFFF' },
-  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  slotBtn: {
-    width: '48%',
-    paddingVertical: 14,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.primary.main,
-    alignItems: 'center',
+    padding: 14,
+    marginBottom: 10,
   },
-  slotActive: { backgroundColor: colors.primary.main },
-  slotDisabled: { borderColor: colors.neutral.border, backgroundColor: '#F1F5F9' },
-  slotText: { fontSize: 14, fontWeight: '600', color: colors.primary.main },
-  slotTextActive: { color: '#FFFFFF' },
-  slotTextDisabled: { color: colors.text.disabled, textDecorationLine: 'line-through' },
+  methodOptionActive: {
+    borderColor: colors.primary.main,
+    backgroundColor: '#F0FDFA',
+  },
+  radioDot: {
+    fontSize: 18,
+    color: colors.primary.main,
+    marginRight: 12,
+  },
+  methodTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  methodSub: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  disclaimerBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    padding: 12,
+    marginVertical: 14,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: '#92400E',
+    textAlign: 'center',
+  },
   primaryActionBtn: {
-    width: '100%',
-    paddingVertical: 14,
     backgroundColor: colors.primary.main,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 10,
   },
-  primaryActionBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  primaryActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   secondaryActionBtn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.neutral.border,
+    paddingVertical: 12,
     alignItems: 'center',
   },
-  secondaryActionBtnText: { color: colors.text.primary, fontWeight: '600', fontSize: 14 },
+  secondaryActionBtnText: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   successIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: colors.primary.main,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+  },
+  receiptBadge: {
+    backgroundColor: '#DEF7EC',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  receiptBadgeText: {
+    color: '#03543F',
+    fontWeight: '700',
+    fontSize: 13,
   },
   confirmationCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: colors.neutral.border,
     marginBottom: 20,
   },
-  confirmHeader: { fontSize: 16, fontWeight: '700', color: colors.text.primary, marginBottom: 10 },
-  confirmLine: { fontSize: 14, color: colors.text.primary, marginBottom: 6 },
-  confirmStatus: { fontSize: 14, fontWeight: '700', color: colors.primary.main, marginTop: 10 },
+  confirmHeader: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: 10,
+  },
+  confirmLine: {
+    fontSize: 13,
+    color: colors.text.primary,
+    marginBottom: 6,
+  },
 });
 
 export default AppointmentBookingScreen;
