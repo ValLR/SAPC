@@ -41,8 +41,16 @@ const normalizarHora = (hora) => {
   return `${hh}:${mm}:00`;
 };
 
+/** minutos desde medianoche -> "HH:MM:SS" (inverso de horaAMinutos). */
+const minutosAHora = (minutos) => {
+  const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
+  const mm = String(minutos % 60).padStart(2, '0');
+  return `${hh}:${mm}:00`;
+};
+
 module.exports = {
   esFechaISO,
   horaAMinutos,
-  normalizarHora
+  normalizarHora,
+  minutosAHora
 };

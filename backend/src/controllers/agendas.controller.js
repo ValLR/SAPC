@@ -16,6 +16,7 @@
 // =====================================================================
 
 const pool = require('../config/db');
+const { esFechaISO, horaAMinutos, minutosAHora } = require('../utils/tiempo');
 
 // ---------------------------------------------------------------------
 //  Constantes de dominio
@@ -35,29 +36,10 @@ const ESTADOS_QUE_OCUPAN = ['CANCELADA', 'NO_ASISTIO'];
 // ---------------------------------------------------------------------
 //  Helpers de tiempo y fecha
 // ---------------------------------------------------------------------
-
-/** "09:30" o "09:30:00" -> minutos desde medianoche */
-const horaAMinutos = (hora) => {
-  const partes = String(hora).split(':');
-  const hh = Number(partes[0]);
-  const mm = Number(partes[1]);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return NaN;
-  return hh * 60 + mm;
-};
-
-/** minutos desde medianoche -> "HH:MM:SS" */
-const minutosAHora = (minutos) => {
-  const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
-  const mm = String(minutos % 60).padStart(2, '0');
-  return `${hh}:${mm}:00`;
-};
-
-/** Valida formato YYYY-MM-DD y que sea una fecha real */
-const esFechaISO = (valor) => {
-  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
-  const d = new Date(`${valor}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === valor;
-};
+// Las validaciones de fecha y hora viven en `src/utils/tiempo.js`, módulo
+// compartido con clases, citas y reportes (antes estaban duplicadas aquí).
+// Aquí quedan solo las que son propias de agendas: día de la semana e
+// iteración de rangos de fechas.
 
 /** Fecha ISO -> día de la semana ISO-8601 (1=Lunes ... 7=Domingo) */
 const diaSemanaISO = (fechaISO) => {
