@@ -15,6 +15,7 @@
 
 const pool = require('../config/db');
 const { IDS_ROL } = require('../utils/roles');
+const { esFechaISO, horaAMinutos, normalizarHora } = require('../utils/tiempo');
 
 // ---------------------------------------------------------------------
 //  Constantes de dominio
@@ -25,31 +26,8 @@ const ROL_TERAPEUTA = IDS_ROL.TERAPEUTA;   // roles.id_rol = 2 (TERAPEUTA)
 // ---------------------------------------------------------------------
 //  Helpers
 // ---------------------------------------------------------------------
-
-/** Valida formato YYYY-MM-DD y que sea una fecha real */
-const esFechaISO = (valor) => {
-  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
-  const d = new Date(`${valor}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === valor;
-};
-
-/** "09:30" o "09:30:00" -> minutos desde medianoche */
-const horaAMinutos = (hora) => {
-  const partes = String(hora).split(':');
-  const hh = Number(partes[0]);
-  const mm = Number(partes[1]);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return NaN;
-  return hh * 60 + mm;
-};
-
-/** Normaliza "09:30" -> "09:30:00" */
-const normalizarHora = (hora) => {
-  const min = horaAMinutos(hora);
-  if (Number.isNaN(min)) return null;
-  const hh = String(Math.floor(min / 60)).padStart(2, '0');
-  const mm = String(min % 60).padStart(2, '0');
-  return `${hh}:${mm}:00`;
-};
+// Las validaciones de fecha y hora viven en `src/utils/tiempo.js`, módulo
+// compartido con agendas, citas y reportes (antes estaban duplicadas aquí).
 
 /**
  * Compone el objeto unificado de clase grupal.
