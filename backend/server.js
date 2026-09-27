@@ -52,6 +52,7 @@ app.use('/api/citas', citasRoutes);
 
 // Reportería administrativa: métricas de demanda y ocupación (US-15)
 app.use('/api/reports', reportsRoutes);
+app.use('/api/reportes', reportsRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
