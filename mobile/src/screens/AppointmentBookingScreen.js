@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import paymentsService from '../services/paymentsService';
+import storageService from '../services/storageService';
+
+
+// Obtiene la IP del backend de la misma forma que authService / classesService
+const getBackendHost = () => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Constants = require('expo-constants').default;
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) return `http://${hostUri.split(':')[0]}:3000/api`;
+  } catch (_) { }
+  return 'http://localhost:3000/api';
+};
+
+const API_BASE_URL = getBackendHost();
 
 const LOGO_ICON = require('../../assets/logo-icon.png');
 
@@ -23,32 +38,63 @@ export const AppointmentBookingScreen = ({ onBack }) => {
   const [step, setStep] = useState(1);
   const [selectedSpecialty, setSelectedSpecialty] = useState('Todos');
   const [selectedTerapeuta, setSelectedTerapeuta] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(23); // Mié 23
-  const [selectedSlot, setSelectedSlot] = useState('10:00 - 10:45');
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('WEBPAY');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentReceipt, setPaymentReceipt] = useState(null);
 
-  const terapeutasMock = [
-    {
-      id: 1,
-      name: 'Dra. Camila Morales',
-      specialty: 'Psicología Clínica (Salud Mental)',
-      category: 'Salud Mental',
-    },
-    {
-      id: 2,
-      name: 'Lic. Andrés Silva',
-      specialty: 'Nutrición Integral',
-      category: 'Nutrición',
-    },
-    {
-      id: 3,
-      name: 'Ps. María Paz Castro',
-      specialty: 'Psicoterapeuta',
-      category: 'Salud Mental',
-    },
-  ];
+  const [terapeutas, setTerapeutas] = useState([]);
+  const [loadingTerapeutas, setLoadingTerapeutas] = useState(true);
+  const [errorTerapeutas, setErrorTerapeutas] = useState(null);
+
+  useEffect(() => {
+    const fetchTerapeutas = async () => {
+      setLoadingTerapeutas(true);
+      setErrorTerapeutas(null);
+      try {
+        const token = await storageService.getToken();
+        const response = await fetch(`${API_BASE_URL}/terapeutas`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          setErrorTerapeutas(data.message || 'No se pudo cargar el listado de terapeutas.');
+          return;
+        }
+
+        const normalized = (data.data || []).map((p) => {
+          const especialidadPrincipal = p.especialidades?.find((e) => e.es_principal) ||
+            p.especialidades?.[0];
+          return {
+            id: p.id_profesional,
+            id_profesional: p.id_profesional,
+            name: `${p.nombre} ${p.apellido}`.trim(),
+            specialty: especialidadPrincipal?.nombre ||
+              p.titulo_profesional ||
+              'Terapeuta SAPC',
+            category: especialidadPrincipal?.nombre || 'General',
+            estado_disponibilidad: p.estado_disponibilidad,
+          };
+        });
+
+        setTerapeutas(normalized.filter((t) => t.estado_disponibilidad !== 'NO_DISPONIBLE'));
+      } catch (err) {
+        console.error('[AppointmentBookingScreen] Error al obtener terapeutas:', err);
+        setErrorTerapeutas('Sin conexión. Verifica tu red e inténtalo nuevamente.');
+      } finally {
+        setLoadingTerapeutas(false);
+      }
+    };
+
+    fetchTerapeutas();
+  }, []);
 
   const timeSlots = [
     { time: '09:00 - 09:45', available: true },
@@ -143,21 +189,46 @@ export const AppointmentBookingScreen = ({ onBack }) => {
 
               <Text style={styles.sectionTitle}>Terapeutas disponibles:</Text>
 
-              {/* Lista de Terapeutas */}
-              {terapeutasMock.map((t) => (
-                <View key={t.id} style={styles.terapeutaCard}>
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={{ fontSize: 24 }}>👩‍⚕️</Text>
-                  </View>
-                  <View style={styles.terapeutaInfo}>
-                    <Text style={styles.terapeutaName}>{t.name}</Text>
-                    <Text style={styles.terapeutaSub}>{t.specialty}</Text>
-                    <TouchableOpacity style={styles.btnHorarios} onPress={() => handleSelectTerapeuta(t)}>
-                      <Text style={styles.btnHorariosText}>Ver Horarios</Text>
-                    </TouchableOpacity>
-                  </View>
+              {/* FIX-01: Estado de carga de la API */}
+              {loadingTerapeutas && (
+                <View style={styles.centeredFeedback}>
+                  <ActivityIndicator size="large" color={colors.primary.main} />
+                  <Text style={styles.feedbackText}>Cargando terapeutas...</Text>
                 </View>
-              ))}
+              )}
+
+              {/* FIX-01: Error de red o de la API */}
+              {!loadingTerapeutas && errorTerapeutas && (
+                <View style={styles.centeredFeedback}>
+                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Text style={styles.feedbackText}>{errorTerapeutas}</Text>
+                </View>
+              )}
+
+              {/* FIX-01: Lista dinámica desde la API (Escenario 2 Gherkin) */}
+              {!loadingTerapeutas && !errorTerapeutas && terapeutas.length === 0 && (
+                <View style={styles.centeredFeedback}>
+                  <Text style={styles.feedbackText}>No hay terapeutas disponibles en este momento.</Text>
+                </View>
+              )}
+
+              {!loadingTerapeutas && !errorTerapeutas && terapeutas
+                .filter((t) => selectedSpecialty === 'Todos' ||
+                  t.category.toLowerCase().includes(selectedSpecialty.toLowerCase()))
+                .map((t) => (
+                  <View key={t.id} style={styles.terapeutaCard}>
+                    <View style={styles.avatarPlaceholder}>
+                      <Text style={{ fontSize: 24 }}>👩‍⚕️</Text>
+                    </View>
+                    <View style={styles.terapeutaInfo}>
+                      <Text style={styles.terapeutaName}>{t.name}</Text>
+                      <Text style={styles.terapeutaSub}>{t.specialty}</Text>
+                      <TouchableOpacity style={styles.btnHorarios} onPress={() => handleSelectTerapeuta(t)}>
+                        <Text style={styles.btnHorariosText}>Ver Horarios</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
             </View>
           )}
 
@@ -496,7 +567,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     backgroundColor: colors.neutral.background,
     alignItems: 'center',
-    justify.content: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   terapeutaInfo: {
@@ -787,6 +858,23 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: 6,
   },
+  // FIX-01: estilos para estados de carga/error de la lista de terapeutas
+  centeredFeedback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 10,
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  errorIcon: {
+    fontSize: 28,
+  },
 });
+
 
 export default AppointmentBookingScreen;

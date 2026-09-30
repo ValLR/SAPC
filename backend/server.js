@@ -21,8 +21,8 @@ app.use(express.json());
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'API SAPC-Chawal activa',
     timestamp: new Date().toISOString()
   });
@@ -56,7 +56,7 @@ app.use('/api/reportes', reportsRoutes);
 
 // Ruta raíz
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'SAPC Chawal API REST Running',
     endpoints: {
       health: '/api/health',
@@ -70,6 +70,17 @@ app.get('/', (req, res) => {
       citas: '/api/citas',
       reports: '/api/reports'
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manejador global de rutas no encontradas
+// ─────────────────────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `La ruta ${req.method} ${req.path} no existe en esta API`,
+    error: 'NOT_FOUND'
   });
 });
 
