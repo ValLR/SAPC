@@ -11,6 +11,7 @@ const agendasRoutes = require('./src/routes/agendas.routes');
 const clasesRoutes = require('./src/routes/clases.routes');
 const citasRoutes = require('./src/routes/citas.routes');
 const reportsRoutes = require('./src/routes/reports.routes');
+const pagosRoutes = require('./src/routes/pagos.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +55,9 @@ app.use('/api/citas', citasRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/reportes', reportsRoutes);
 
+// Pagos: simulación de transacción para el flujo de reserva móvil (FIX-02 / US-16)
+app.use('/api/pagos', pagosRoutes);
+
 // Ruta raíz
 app.get('/', (req, res) => {
   res.json({
@@ -68,7 +72,8 @@ app.get('/', (req, res) => {
       agendas: '/api/agendas',
       clases: '/api/clases',
       citas: '/api/citas',
-      reports: '/api/reports'
+      reports: '/api/reports',
+      pagos: '/api/pagos'
     }
   });
 });
