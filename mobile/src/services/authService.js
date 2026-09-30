@@ -75,7 +75,9 @@ export const authService = {
       };
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error('Error en authService.login:', error);
+if (process.env.NODE_ENV !== 'test') {
+  console.error('Error en authService.login:', error);
+}
 
       let message =
         'No se pudo establecer conexión con el servidor SAPC. Verifica tu red o el estado del servidor backend.';

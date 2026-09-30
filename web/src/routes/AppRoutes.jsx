@@ -8,8 +8,6 @@ import ProfesionalesPage from '../pages/ProfesionalesPage';
 import ScheduleConfigPage from '../pages/ScheduleConfigPage';
 import TalleresPage from '../pages/TalleresPage';
 import ReportesPage from '../pages/ReportesPage';
-import PlaceholderPage from '../pages/PlaceholderPage';
-
 /**
  * Configuración del Enrutador Principal del Portal Web (React Router DOM)
  */
