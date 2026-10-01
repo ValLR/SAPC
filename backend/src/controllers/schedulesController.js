@@ -10,16 +10,41 @@ const getSchedules = async (req, res) => {
     const userRole = req.user?.rol;
     let therapistId = req.query.therapistId ? Number(req.query.therapistId) : null;
 
-    if (userRole === 'TERAPEUTA' || !therapistId) {
+    if (therapistId !== null && (!Number.isInteger(therapistId) || therapistId <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'therapistId debe ser un entero positivo',
+        error: 'INVALID_THERAPIST_ID',
+      });
+    }
+
+    // Un TERAPEUTA solo consulta SU agenda: el id se resuelve desde su usuario
+    // y se ignora lo que venga en la query.
+    // ⚠️ Antes había un fallback `therapistId = 1`: si el usuario no tenía
+    // ficha de profesional, la API devolvía la agenda del profesional 1 en
+    // silencio. Ahora se rechaza de forma explícita.
+    if (userRole === 'TERAPEUTA') {
       const [profRows] = await pool.query(
         `SELECT id_profesional FROM profesionales WHERE id_usuario = ? LIMIT 1`,
         [userId]
       );
-      if (profRows.length > 0) {
-        therapistId = profRows[0].id_profesional;
-      } else {
-        therapistId = 1;
+      if (profRows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'El usuario autenticado no tiene ficha de profesional',
+          error: 'NOT_A_THERAPIST',
+        });
       }
+      therapistId = profRows[0].id_profesional;
+    }
+
+    // Los roles de gestión deben indicar de quién es la agenda.
+    if (!therapistId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debes indicar de qué profesional quieres la agenda (?therapistId=<id>)',
+        error: 'MISSING_THERAPIST_ID',
+      });
     }
 
     const [blocks] = await pool.query(
@@ -74,16 +99,44 @@ const publishSchedule = async (req, res) => {
 
     let targetTherapistId = Number(therapist_id);
 
-    if (userRole === 'TERAPEUTA' || !targetTherapistId) {
+    // Un TERAPEUTA publica SOLO su jornada (no puede escribir bloques de
+    // otros profesionales, aunque envíe otro id).
+    // ⚠️ Antes, si el usuario no tenía ficha de profesional, se publicaba en
+    // el profesional 1 en silencio.
+    if (userRole === 'TERAPEUTA') {
       const [profRows] = await pool.query(
         `SELECT id_profesional FROM profesionales WHERE id_usuario = ? LIMIT 1`,
         [userId]
       );
-      if (profRows.length > 0) {
-        targetTherapistId = profRows[0].id_profesional;
-      } else {
-        targetTherapistId = 1;
+      if (profRows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'El usuario autenticado no tiene ficha de profesional',
+          error: 'NOT_A_THERAPIST',
+        });
       }
+      targetTherapistId = profRows[0].id_profesional;
+    }
+
+    // Los roles de gestión deben indicar explícitamente para quién publican.
+    if (!Number.isInteger(targetTherapistId) || targetTherapistId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'therapist_id es requerido y debe ser un entero positivo',
+        error: 'MISSING_THERAPIST_ID',
+      });
+    }
+
+    const [profesional] = await pool.query(
+      `SELECT id_profesional FROM profesionales WHERE id_profesional = ? AND activo = 1`,
+      [targetTherapistId]
+    );
+    if (profesional.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Profesional inexistente o inactivo',
+        error: 'THERAPIST_NOT_FOUND',
+      });
     }
 
     if (!start_time || !end_time) {

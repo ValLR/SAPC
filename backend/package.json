@@ -7,7 +7,7 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "db:setup": "node db/setup.js",
-    "test": "node --test __tests__/"
+    "test": "node --test --test-concurrency=1 __tests__/"
   },
   "keywords": [],
   "author": "",

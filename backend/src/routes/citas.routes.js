@@ -19,7 +19,8 @@ router.get('/info', verifyToken, (req, res) => {
     message: 'Citas API Routes - SAPC Chawal',
     endpoints: {
       agendar: 'POST /api/citas',
-      cancelar: 'DELETE /api/citas/:id_cita'
+      cancelar: 'DELETE /api/citas/:id_cita',
+      cancelarAliasMovil: 'POST /api/citas/:id_cita/cancelar'
     },
     version: '1.0.0',
     user_story: 'US-05 (SCRUM-13)'
@@ -50,6 +51,25 @@ router.post('/', verifyToken, requireRole(ROLES.PACIENTE), crearCita);
  */
 router.delete(
   '/:id_cita',
+  verifyToken,
+  requireRole(ROLES.PACIENTE, ROLES.TERAPEUTA, ROLES.ADMINISTRADOR),
+  cancelarCita
+);
+
+/**
+ * @route  POST /api/citas/:id_cita/cancelar
+ * @desc   Alias del contrato móvil (mobile/src/services/paymentsService.js →
+ *         cancelAppointmentHold). Hace EXACTAMENTE lo mismo que el DELETE:
+ *         delega en el mismo controlador, con los mismos roles y la misma
+ *         validación de propiedad. Existe porque la app ya llamaba a esta
+ *         ruta, recibía 404 y fabricaba un "éxito" en el cliente sin liberar
+ *         el bloque (el slot quedaba ocupado).
+ * @access Privado — mismos roles que DELETE (controlador valida propiedad)
+ * @body   { motivo? }
+ * @returns 200 OK | 409 Conflict | 403 Forbidden | 404 Not Found
+ */
+router.post(
+  '/:id_cita/cancelar',
   verifyToken,
   requireRole(ROLES.PACIENTE, ROLES.TERAPEUTA, ROLES.ADMINISTRADOR),
   cancelarCita
