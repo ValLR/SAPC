@@ -164,7 +164,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
 
               {/* Buscador */}
               <View style={styles.searchContainer}>
-                <Text style={styles.searchIcon}>🔍</Text>
+                <Ionicons name="search-outline" size={18} color={colors.text.placeholder} style={styles.searchIcon} />
                 <TextInput
                   placeholder="Buscar terapeuta o especialidad..."
                   style={styles.searchInput}
@@ -200,7 +200,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
               {/* FIX-01: Error de red o de la API */}
               {!loadingTerapeutas && errorTerapeutas && (
                 <View style={styles.centeredFeedback}>
-                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Ionicons name="warning-outline" size={28} color={colors.error || '#E53935'} />
                   <Text style={styles.feedbackText}>{errorTerapeutas}</Text>
                 </View>
               )}
@@ -218,7 +218,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 .map((t) => (
                   <View key={t.id} style={styles.terapeutaCard}>
                     <View style={styles.avatarPlaceholder}>
-                      <Text style={{ fontSize: 24 }}>👩‍⚕️</Text>
+                      <Ionicons name="person-circle-outline" size={28} color={colors.primary.main} />
                     </View>
                     <View style={styles.terapeutaInfo}>
                       <Text style={styles.terapeutaName}>{t.name}</Text>
@@ -240,7 +240,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
               {/* Card de Terapeuta seleccionado */}
               <View style={styles.selectedHeaderCard}>
                 <View style={styles.avatarPlaceholderSmall}>
-                  <Text style={{ fontSize: 20 }}>👩‍⚕️</Text>
+                  <Ionicons name="person-circle-outline" size={24} color={colors.primary.main} />
                 </View>
                 <View>
                   <Text style={styles.selectedName}>{selectedTerapeuta?.name}</Text>
@@ -395,7 +395,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
           {step === 4 && (
             <View style={{ alignItems: 'center', paddingTop: 10 }}>
               <View style={styles.successIconCircle}>
-                <Text style={{ fontSize: 36, color: '#FFFFFF' }}>✓</Text>
+                <Ionicons name="checkmark" size={36} color="#FFFFFF" />
               </View>
 
               <Text style={styles.screenTitle}>¡Cita Confirmada con Éxito!</Text>

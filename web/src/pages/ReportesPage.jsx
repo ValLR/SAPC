@@ -7,18 +7,9 @@ import {
   RefreshCw,
   AlertCircle,
   Activity,
-  DollarSign,
 } from 'lucide-react';
 import { reportsWebService } from '../services/reportsWebService';
 import './ReportesPage.css';
-
-const formatCLP = (monto) => {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(monto || 0);
-};
 
 export const ReportesPage = () => {
   const [desde, setDesde] = useState('');
@@ -185,18 +176,7 @@ export const ReportesPage = () => {
               </div>
             </div>
 
-            <div className="reportes-kpi-card card-info">
-              <div className="kpi-icon-wrapper icon-blue">
-                <DollarSign size={24} />
-              </div>
-              <div className="kpi-content">
-                <span className="kpi-label">Ingresos Simulados Acumulados</span>
-                <div className="kpi-value">{formatCLP((citas.vigentes || 0) * 25000)}</div>
-                <span className="kpi-subtext">
-                  Estimación basada en {citas.vigentes || 0} citas vigentes
-                </span>
-              </div>
-            </div>
+
           </section>
 
           {/* 6. Grillas / Tablas de Métricas */}

@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import classesService from '../services/classesService';
 import ClassCard from '../components/ClassCard';
 import colors from '../theme/colors';
@@ -141,7 +142,7 @@ export const ClassesScreen = ({ onBack }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <View style={styles.modalIconContainer}>
-                <Text style={{ fontSize: 32 }}>📅</Text>
+                <Ionicons name="calendar-outline" size={32} color="#2D7D79" />
               </View>
 
               <Text style={styles.modalTitle}>Confirmar Inscripción</Text>
