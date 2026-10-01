@@ -10,6 +10,10 @@
 //
 //  Runner: `node:test` nativo de Node (18+), sin dependencias externas.
 //  Usa fetch nativo (Node 18+), por lo que la API debe estar levantada.
+//  ⚠️ Los archivos de `__tests__/` comparten la MISMA base de datos, así que
+//     se ejecutan EN SECUENCIA: `npm test` usa `--test-concurrency=1`. Correr
+//     `node --test __tests__/` en paralelo rompe estos invariantes (otra
+//     suite puede crear una cita o un taller entre dos fetch consecutivos).
 //
 //  Escenarios del AC (SCRUM-23):
 //    Escenario 1 — Un ADMINISTRADOR autenticado obtiene 200 OK con el total

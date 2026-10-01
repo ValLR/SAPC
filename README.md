@@ -9,20 +9,41 @@ Para levantar la solución completa en tu máquina local, sigue este orden:
 
 ### 1. Base de Datos (MySQL 8.0)
 
-**Requisitos**: MySQL 8.0 corriendo en `localhost:3306`.
+**Requisitos**: MySQL 8.0 corriendo en `localhost:3306` y las credenciales
+definidas en `backend/.env` (`DB_USER`, `DB_PASS`, `DB_NAME`).
 
-```sql
--- Crear la base de datos
-CREATE DATABASE IF NOT EXISTS chawal_db
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Ejecutar los scripts SQL desde la raíz del repositorio:
 ```bash
-mysql -u root -p chawal_db < backend/db/schema.sql
-mysql -u root -p chawal_db < backend/db/seed.sql
+cd backend
+npm run db:setup
 ```
-*(También puedes abrirlos e ingresarlos desde MySQL Workbench u otra GUI).*
+
+Ese comando crea la base de datos si no existe y aplica, **en orden**:
+
+| # | Archivo | Contenido |
+|---|---|---|
+| 1 | `db/schema.sql` | 17 tablas, índices, CHECKs, FKs y la vista `v_usuarios_roles` |
+| 2 | `db/stored_procedures/*.sql` | `sp_agendar_cita` |
+| 3 | `db/triggers/*.sql` | Validaciones de citas + control de aforo |
+| 4 | `db/seed.sql` | Datos maestros y de prueba |
+
+Al finalizar verifica que existan los 6 triggers y el stored procedure.
+
+> ⚠️ **El orden importa.** `seed.sql` inserta citas grupales que dependen de
+> `trg_citas_bi_validacion` (que deriva `es_grupal`). Ejecutar solo
+> `schema.sql` + `seed.sql` deja la BD sin triggers y el seed falla.
+>
+> ⚠️ `db:setup` **borra y recrea** las tablas. No usar en producción.
+
+<details>
+<summary>Ejecución manual (MySQL Workbench)</summary>
+
+1. `backend/db/schema.sql`
+2. `backend/db/stored_procedures/sp_agendar_cita.sql`
+3. `backend/db/triggers/*.sql` (cualquier orden)
+4. `backend/db/seed.sql`
+
+Ver `backend/db/README.md` para más detalle.
+</details>
 
 #### Credenciales Oficiales de Prueba (Seed Data)
 La contraseña de **TODOS** los usuarios del seed es **`Password2026!`**:
@@ -34,6 +55,8 @@ La contraseña de **TODOS** los usuarios del seed es **`Password2026!`**:
 | `matias.fuentes@chawal.cl` | `TERAPEUTA` | Fonoaudiólogo |
 | `valentina.soto@chawal.cl` | `TERAPEUTA` | Psicóloga |
 | `pedro.gonzalez@mail.cl` | `PACIENTE` | Paciente usuario final |
+
+> ⚠️ Credenciales **solo para desarrollo local**; `seed.sql` no se ejecuta en producción.
 
 ---
 
@@ -105,6 +128,18 @@ La contraseña de **TODOS** los usuarios del seed es **`Password2026!`**:
 | Módulo | Comando de Ejecución | Descripción |
 |---|---|---|
 | **Backend** | `node test-login.js` | Ejecuta las 6 pruebas de integración del endpoint de login. |
+| **Backend** | `node test-us03.js` | Ejecuta las 36 verificaciones de autorización por roles/RBAC (US-03). |
+| **Backend** | `node test-us05.js` | Ejecuta las 52 verificaciones del agendamiento transaccional y la cancelación de citas (US-05). Requiere seed limpio. |
+| **Backend** | `npm test` | Ejecuta las 78 pruebas de `backend/__tests__/` con `node:test` (en secuencia): métricas de demanda (US-15), simulación de pago (FIX-02), RBAC de la reserva de clases (FIX-03) y bloque correctivo. Requiere la API arriba; no requiere seed limpio. |
+| **Backend** | `node test-concurrencia-us05.js` | Ejecuta las 13 verificaciones de concurrencia del agendamiento (US-05). Requiere el servidor arriba. |
 | **Backend** | `node test-terapeutas.js` | Ejecuta las 21 pruebas del CRUD de Terapeutas (US-13). |
+| **Backend** | `node test-agendas.js` | Ejecuta las 36 pruebas de agendas/bloques horarios (US-07). |
+| **Backend** | `node test-clases.js` | Ejecuta las 49 pruebas del CRUD de talleres grupales (US-11). |
+| **Backend** | `node test-us09.js` | Ejecuta las 13 pruebas del ciclo de aforo a nivel BD (US-09). |
+| **Backend** | `node test-concurrencia-us09.js` | Ejecuta las 14 pruebas de concurrencia del aforo (US-09). Requiere el servidor arriba. |
 | **Web** | `cd web && npm test` | Ejecuta 11 pruebas unitarias con Vitest (servicios, AuthContext, ProtectedRoute). |
 | **Mobile** | `cd mobile && npm test` | Ejecuta 11 pruebas unitarias con Jest (storageService, authService, AuthContext). |
+
+> Los tests de backend con `(US-xx)` requieren el servidor levantado
+> (`npm run dev`) **y** la base de datos inicializada (`npm run db:setup`).
+> Varios crean datos de prueba: re-ejecuta `npm run db:setup` para limpiar.
