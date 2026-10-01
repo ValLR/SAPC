@@ -26,6 +26,7 @@ const getClasses = async (req, res) => {
          FROM clases_grupales c
          JOIN profesionales p ON p.id_profesional = c.id_instructor
          JOIN usuarios u ON u.id_usuario = p.id_usuario
+        WHERE c.estado_clase <> 'CANCELADA'
         ORDER BY c.fecha_clase ASC, c.hora_inicio ASC`
     );
 
@@ -85,7 +86,8 @@ const reserveClass = async (req, res) => {
 
     // Check availability
     const [classRows] = await pool.query(
-      `SELECT id_clase, nombre_actividad, cupos_disponibles FROM clases_grupales WHERE id_clase = ?`,
+      `SELECT id_clase, nombre_actividad, cupos_disponibles, estado_clase
+         FROM clases_grupales WHERE id_clase = ?`,
       [idClass]
     );
 
@@ -98,6 +100,28 @@ const reserveClass = async (req, res) => {
     }
 
     const currentClass = classRows[0];
+
+    // Una clase solo admite inscripciones mientras está PROGRAMADA.
+    // ⚠️ `DELETE /api/clases/:id_clase` es una baja LÓGICA (estado_clase =
+    // 'CANCELADA'): sin este guard, un paciente podía inscribirse en un taller
+    // cancelado y consumir un cupo de algo que ya no se dicta. Se valida en el
+    // servidor porque el catálogo puede llegar filtrado o cacheado por el
+    // cliente. (estado_clase ENUM('PROGRAMADA','COMPLETADA','CANCELADA'))
+    if (currentClass.estado_clase === 'CANCELADA') {
+      return res.status(409).json({
+        success: false,
+        message: 'La clase fue cancelada y no admite inscripciones',
+        error: 'CLASS_CANCELLED',
+      });
+    }
+
+    if (currentClass.estado_clase !== 'PROGRAMADA') {
+      return res.status(409).json({
+        success: false,
+        message: 'La clase ya no admite inscripciones',
+        error: 'CLASS_COMPLETED',
+      });
+    }
 
     if (currentClass.cupos_disponibles <= 0) {
       // US-09: el AC exige 400 Bad Request al rechazar por aforo agotado.
