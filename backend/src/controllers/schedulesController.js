@@ -63,8 +63,9 @@ const getSchedules = async (req, res) => {
 
     const [therapists] = await pool.query(
       `SELECT p.id_profesional AS id,
-              CONCAT(CASE WHEN u.nombre LIKE 'Camila%' THEN 'Dra. ' ELSE 'Lic. ' END, u.nombre, ' ', u.apellido) AS name,
-              COALESCE(p.titulo_profesional, e.nombre, 'Especialista') AS specialty
+              u.id_usuario,
+              TRIM(CONCAT(COALESCE(CONCAT(p.titulo_profesional, ' '), ''), u.nombre, ' ', u.apellido)) AS name,
+              COALESCE(e.nombre, 'Especialista') AS specialty
          FROM profesionales p
          JOIN usuarios u ON u.id_usuario = p.id_usuario
     LEFT JOIN especialidades e ON e.id_especialidad = p.id_especialidad_principal
@@ -173,8 +174,8 @@ const publishSchedule = async (req, res) => {
 
       await conn.query(
         `UPDATE bloques_horarios SET activo = 0
-          WHERE id_profesional = ? AND dia_semana IN (?)`,
-        [targetTherapistId, selectedDays]
+          WHERE id_profesional = ?`,
+        [targetTherapistId]
       );
 
       for (const day of selectedDays) {

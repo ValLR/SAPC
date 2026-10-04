@@ -401,6 +401,7 @@ export const ProfesionalesPage = () => {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     error={formErrors.email}
                     disabled={modalMode === 'edit'}
+                    autoComplete="off"
                   />
 
                   <Input
@@ -408,6 +409,7 @@ export const ProfesionalesPage = () => {
                     placeholder="+56912345678"
                     value={formData.telefono}
                     onChange={(e) => handleInputChange('telefono', e.target.value)}
+                    autoComplete="off"
                   />
 
                   {modalMode === 'create' && (
@@ -418,6 +420,7 @@ export const ProfesionalesPage = () => {
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       error={formErrors.password}
+                      autoComplete="new-password"
                     />
                   )}
 

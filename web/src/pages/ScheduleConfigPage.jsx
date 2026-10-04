@@ -6,14 +6,11 @@ import './ScheduleConfigPage.css';
 
 export const ScheduleConfigPage = () => {
   const { user } = useAuth();
-  const isTerapeuta = user?.role === 'Terapeuta';
+  const userRole = (user?.role || user?.rol || '').toUpperCase();
+  const isTerapeuta = userRole === 'TERAPEUTA';
 
-  const [therapists, setTherapists] = useState([
-    { id: 1, name: 'Dra. Camila Morales', specialty: 'Kinesiología' },
-    { id: 2, name: 'Lic. Matías Fuentes', specialty: 'Fonoaudiología' },
-    { id: 3, name: 'Ps. Valentina Soto', specialty: 'Psicología' },
-  ]);
-  const [selectedTherapistId, setSelectedTherapistId] = useState(1);
+  const [therapists, setTherapists] = useState([]);
+  const [selectedTherapistId, setSelectedTherapistId] = useState(null);
 
   const [workingDays, setWorkingDays] = useState({
     1: true, // Lun
@@ -33,10 +30,37 @@ export const ScheduleConfigPage = () => {
   const [schedulesData, setSchedulesData] = useState([]);
 
   useEffect(() => {
-    loadSchedules(selectedTherapistId);
-  }, [selectedTherapistId]);
+    const initSchedules = async () => {
+      setIsLoading(true);
+      const res = await schedulesService.getSchedules(1);
+      if (res.success && res.therapists && res.therapists.length > 0) {
+        setTherapists(res.therapists);
+        
+        let targetId = res.therapists[0].id;
+        if (isTerapeuta && user) {
+          const myProf = res.therapists.find(
+            (t) => t.id_usuario === user.id || t.id === user.id
+          );
+          if (myProf) {
+            targetId = myProf.id;
+          }
+        }
+        
+        setSelectedTherapistId(targetId);
+
+        const detailRes = await schedulesService.getSchedules(targetId);
+        if (detailRes.success) {
+          setSchedulesData(detailRes.data);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initSchedules();
+  }, [user]);
 
   const loadSchedules = async (therapistId) => {
+    if (!therapistId) return;
     setIsLoading(true);
     const res = await schedulesService.getSchedules(therapistId);
     if (res.success) {
@@ -112,9 +136,19 @@ export const ScheduleConfigPage = () => {
 
   const [weekOffset, setWeekOffset] = useState(0);
 
+  const getMondayOfCurrentWeek = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  };
+
   const getDaysHeader = () => {
     const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-    const baseStart = new Date(2026, 8, 21); // Lunes 21 de Septiembre, 2026
+    const baseStart = getMondayOfCurrentWeek();
     return dayNames.map((name, index) => {
       const d = new Date(baseStart);
       d.setDate(baseStart.getDate() + weekOffset * 7 + index);
@@ -128,25 +162,22 @@ export const ScheduleConfigPage = () => {
   const daysHeader = getDaysHeader();
 
   const getSlotStatus = (dayNum, startStr) => {
-    if (!workingDays[dayNum]) return 'Libre';
+    // Si el día no es laboral para el terapeuta, se muestra Bloqueado
+    if (!workingDays[dayNum]) return 'Bloqueado';
 
     const match = schedulesData.find(
       (b) => b.day_of_week === dayNum && b.start_time?.substring(0, 5) === startStr
     );
 
-    if (!match) {
-      if (dayNum === 3 && startStr === '09:00') return 'Ocupado';
-      if (dayNum === 3 && startStr === '10:00') return 'Ocupado';
-      if (dayNum === 2 && startStr === '10:00') return 'Ocupado';
-      if (dayNum === 4 && startStr === '10:00') return 'Bloqueado';
-      return 'Disponible';
+    if (match && (match.is_reserved || match.status === 'CONFIRMADA' || match.estado === 'CONFIRMADA')) {
+      return 'Ocupado';
     }
 
     return 'Disponible';
   };
 
   const getWeekRangeLabel = () => {
-    const baseStart = new Date(2026, 8, 21); // 21 de Septiembre, 2026
+    const baseStart = getMondayOfCurrentWeek();
     const currentStart = new Date(baseStart);
     currentStart.setDate(baseStart.getDate() + weekOffset * 7);
 
@@ -204,14 +235,24 @@ export const ScheduleConfigPage = () => {
               </label>
               {isTerapeuta ? (
                 <div className="therapist-locked-box">
-                  <span className="therapist-locked-text">Dra. Camila Morales (Tú)</span>
+                  <span className="therapist-locked-text">
+                    {(() => {
+                      const sel = therapists.find((t) => t.id === selectedTherapistId);
+                      const tName = sel?.name || user?.name || 'Terapeuta';
+                      return `${tName} (Tú)`;
+                    })()}
+                  </span>
                   <Lock size={16} className="lock-icon" />
                 </div>
               ) : (
                 <select
                   className="form-select"
-                  value={selectedTherapistId}
-                  onChange={(e) => setSelectedTherapistId(Number(e.target.value))}
+                  value={selectedTherapistId || ''}
+                  onChange={(e) => {
+                    const newId = Number(e.target.value);
+                    setSelectedTherapistId(newId);
+                    loadSchedules(newId);
+                  }}
                 >
                   {therapists.map((t) => (
                     <option key={t.id} value={t.id}>

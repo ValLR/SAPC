@@ -69,8 +69,10 @@ export const ClassesScreen = ({ onBack }) => {
       await loadClasses(); // Actualización en tiempo real de aforos
     } else if (res.status === 403 || res.error === 'NOT_A_PATIENT') {
       Alert.alert('Acceso Denegado', res.message || 'Solo los alumnos/pacientes pueden inscribirse en clases grupales.');
+    } else if (res.status === 409 || res.error === 'ALREADY_RESERVED') {
+      Alert.alert('Ya estás Inscrito', res.message || 'Ya tienes una inscripción activa en este taller.');
     } else {
-      Alert.alert('Aforo Completo', res.message || 'La clase ya no cuenta con cupos disponibles.');
+      Alert.alert('Inscripción no disponible', res.message || 'La clase ya no cuenta con cupos disponibles.');
       await loadClasses();
     }
   };
@@ -159,7 +161,7 @@ export const ClassesScreen = ({ onBack }) => {
                   </Text>
                   <Text style={styles.detailLine}>
                     <Text style={styles.detailLabel}>Fecha: </Text>
-                    {selectedClass.fecha_clase || 'Martes 22 de Septiembre'}
+                    {selectedClass.fecha_clase || selectedClass.fecha || 'Fecha por confirmar'}
                   </Text>
                   <Text style={styles.detailLine}>
                     <Text style={styles.detailLabel}>Horario: </Text>

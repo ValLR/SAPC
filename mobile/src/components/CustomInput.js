@@ -35,6 +35,8 @@ export const CustomInput = ({
   keyboardType = 'default',
   autoCapitalize = 'none',
   style,
+  multiline = false,
+  numberOfLines,
   ...restProps
 }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -60,9 +62,15 @@ export const CustomInput = ({
     <View style={[styles.container, style]}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
-      <View style={[styles.inputContainer, { borderColor }]}>
+      <View
+        style={[
+          styles.inputContainer,
+          { borderColor },
+          multiline && styles.multilineContainer,
+        ]}
+      >
         <TextInput
-          style={styles.input}
+          style={[styles.input, multiline && styles.multilineInput]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -72,6 +80,8 @@ export const CustomInput = ({
           onBlur={handleBlur}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           {...restProps}
         />
 
@@ -116,11 +126,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 48,
   },
+  multilineContainer: {
+    height: 'auto',
+    minHeight: 80,
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
   input: {
     flex: 1,
     fontSize: 15,
     color: colors.text.primary,
     paddingVertical: 0,
+  },
+  multilineInput: {
+    textAlignVertical: 'top',
   },
   eyeButton: {
     padding: 4,

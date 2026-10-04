@@ -1,0 +1,349 @@
+@startuml MER_SAPC_Chawal
+' =====================================================================
+'  S.A.P.C. — CHAWAL | Modelo Entidad-Relación (MySQL 8.0 / InnoDB)
+'  Fuente: backend/db/schema.sql
+'  Leyenda:  * = NOT NULL   <<PK>> clave primaria   <<FK>> clave foránea
+'            <<UQ>> único   <<GEN>> columna generada
+' =====================================================================
+
+!theme plain
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam defaultFontName "Segoe UI"
+skinparam class {
+  BackgroundColor #FDFDFE
+  BorderColor #4A5568
+  ArrowColor #4A5568
+  HeaderBackgroundColor #E2E8F0
+}
+
+title S.A.P.C. Chawal — Modelo Entidad-Relación (chawal_db)
+
+' ---------------------------------------------------------------------
+' IDENTIDAD Y SEGURIDAD
+' ---------------------------------------------------------------------
+package "Identidad y acceso" #F7FAFC {
+
+entity "roles" as roles {
+  * id_rol : TINYINT UNSIGNED <<PK>>
+  --
+  * nombre_rol : ENUM(ADMINISTRADOR, TERAPEUTA, PACIENTE) <<UQ>>
+    descripcion : VARCHAR(150)
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "usuarios" as usuarios {
+  * id_usuario : INT UNSIGNED <<PK>>
+  --
+  * id_rol : TINYINT UNSIGNED <<FK>>
+  * rut : VARCHAR(12) <<UQ>>
+  * nombre : VARCHAR(80)
+  * apellido : VARCHAR(80)
+  * email : VARCHAR(120) <<UQ>>
+  * password_hash : CHAR(60)
+    telefono : VARCHAR(20)
+  * estado : ENUM(ACTIVO, INACTIVO, BLOQUEADO, PENDIENTE)
+  * intentos_fallidos : TINYINT UNSIGNED
+    bloqueado_hasta : DATETIME
+    ultimo_acceso : DATETIME
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+}
+
+' ---------------------------------------------------------------------
+' DOMINIO CLÍNICO
+' ---------------------------------------------------------------------
+package "Dominio clínico" #F0FFF4 {
+
+entity "especialidades" as especialidades {
+  * id_especialidad : INT UNSIGNED <<PK>>
+  --
+  * nombre : VARCHAR(100) <<UQ>>
+    descripcion : VARCHAR(255)
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "profesionales" as profesionales {
+  * id_profesional : INT UNSIGNED <<PK>>
+  --
+  * id_usuario : INT UNSIGNED <<FK>> <<UQ>>
+  * numero_registro : VARCHAR(30) <<UQ>>
+    titulo_profesional : VARCHAR(100)
+    id_especialidad_principal : INT UNSIGNED <<FK>>
+  * anios_experiencia : TINYINT UNSIGNED
+    biografia : TEXT
+  * estado_disponibilidad : ENUM(DISPONIBLE, NO_DISPONIBLE, LICENCIA)
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "pacientes" as pacientes {
+  * id_paciente : INT UNSIGNED <<PK>>
+  --
+  * id_usuario : INT UNSIGNED <<FK>> <<UQ>>
+    fecha_nacimiento : DATE
+    telefono : VARCHAR(20)
+    direccion : VARCHAR(180)
+  * prevision : ENUM(FONASA, ISAPRE, PARTICULAR, OTRA)
+    contacto_emergencia : VARCHAR(120)
+    telefono_emergencia : VARCHAR(20)
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "profesional_especialidad" as prof_esp {
+  * id_profesional : INT UNSIGNED <<PK, FK>>
+  * id_especialidad : INT UNSIGNED <<PK, FK>>
+  --
+  * es_principal : TINYINT(1)
+    uq_principal : INT UNSIGNED <<GEN VIRTUAL>> <<UQ>>
+  * created_at : TIMESTAMP
+}
+
+entity "servicios" as servicios {
+  * id_servicio : INT UNSIGNED <<PK>>
+  --
+    id_especialidad : INT UNSIGNED <<FK>>
+  * codigo : VARCHAR(20) <<UQ>>
+  * nombre : VARCHAR(120)
+    descripcion : VARCHAR(255)
+  * duracion_min : SMALLINT UNSIGNED
+  * precio : DECIMAL(10,2)
+  * aforo_nominal : SMALLINT UNSIGNED
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+}
+
+' ---------------------------------------------------------------------
+' AGENDAMIENTO Y TALLERES
+' ---------------------------------------------------------------------
+package "Agendamiento y talleres" #EBF8FF {
+
+entity "bloques_horarios" as bloques {
+  * id_bloque : INT UNSIGNED <<PK>>
+  --
+  * id_profesional : INT UNSIGNED <<FK>>
+  * dia_semana : TINYINT UNSIGNED (1..7)
+  * hora_inicio : TIME
+  * hora_fin : TIME
+  * aforo_maximo : SMALLINT UNSIGNED
+  * activo : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+  ..
+  UQ (id_profesional, dia_semana, hora_inicio)
+}
+
+entity "citas" as citas {
+  * id_cita : INT UNSIGNED <<PK>>
+  --
+  * id_paciente : INT UNSIGNED <<FK>>
+  * id_profesional : INT UNSIGNED <<FK>>
+  * id_servicio : INT UNSIGNED <<FK>>
+    id_bloque : INT UNSIGNED <<FK>>
+  * fecha_cita : DATE
+  * hora_inicio : TIME
+  * hora_fin : TIME
+  * estado : ENUM(PENDIENTE, CONFIRMADA, EN_CURSO,\n ATENDIDA, CANCELADA, NO_ASISTIO)
+  * es_grupal : TINYINT(1)
+    slot_activo : TIME <<GEN STORED>>
+    motivo : VARCHAR(255)
+    observaciones : TEXT
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+  ..
+  UQ (id_profesional, fecha_cita, slot_activo)
+}
+
+entity "clases_grupales" as clases {
+  * id_clase : INT UNSIGNED <<PK>>
+  --
+  * nombre_actividad : VARCHAR(100)
+    descripcion : TEXT
+    sala : VARCHAR(60)
+  * id_instructor : INT UNSIGNED <<FK>>
+  * aforo_maximo : INT UNSIGNED
+  * cupos_disponibles : INT UNSIGNED
+  * fecha_clase : DATE
+  * hora_inicio : TIME
+  * hora_fin : TIME
+  * estado_clase : ENUM(PROGRAMADA, COMPLETADA, CANCELADA)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "inscripciones_clases" as inscripciones {
+  * id_inscripcion : INT UNSIGNED <<PK>>
+  --
+  * id_paciente : INT UNSIGNED <<FK>>
+  * id_clase : INT UNSIGNED <<FK>>
+  * fecha_inscripcion : TIMESTAMP
+  * estado_inscripcion : ENUM(ACTIVA, CANCELADA)
+  ..
+  UQ (id_paciente, id_clase)
+}
+}
+
+' ---------------------------------------------------------------------
+' PAGOS
+' ---------------------------------------------------------------------
+package "Pagos" #FFFAF0 {
+
+entity "pagos" as pagos {
+  * id_pago : INT UNSIGNED <<PK>>
+  --
+    id_cita : INT UNSIGNED <<FK>> <<UQ>>
+    id_inscripcion_clase : INT UNSIGNED <<FK>> <<UQ>>
+  * monto : DECIMAL(10,2)
+  * metodo_pago : ENUM(EFECTIVO, DEBITO, CREDITO,\n TRANSFERENCIA, SEGURO)
+  * estado_pago : ENUM(PENDIENTE, PAGADO, RECHAZADO, REEMBOLSADO)
+    referencia : VARCHAR(60)
+    fecha_pago : DATETIME
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+  ..
+  CHECK XOR (id_cita | id_inscripcion_clase)
+}
+
+entity "comprobantes_pdf" as comprobantes {
+  * id_comprobante : INT UNSIGNED <<PK>>
+  --
+  * id_transaccion : INT UNSIGNED <<FK>> <<UQ>>
+  * codigo_verificacion : VARCHAR(64) <<UQ>>
+    url_pdf : VARCHAR(255)
+  * fecha_generacion : TIMESTAMP
+}
+}
+
+' ---------------------------------------------------------------------
+' CONTENIDO, NOTIFICACIONES Y SISTEMA
+' ---------------------------------------------------------------------
+package "Contenido y sistema" #FAF5FF {
+
+entity "novedades" as novedades {
+  * id_novedad : INT UNSIGNED <<PK>>
+  --
+  * titulo : VARCHAR(200)
+    resumen : VARCHAR(255)
+    contenido : TEXT
+    imagen_url : VARCHAR(255)
+  * fecha_publicacion : TIMESTAMP
+  * id_autor_admin : INT UNSIGNED <<FK>>
+  * estado : ENUM(PUBLICADO, BORRADOR, OCULTO)
+}
+
+entity "notificaciones" as notificaciones {
+  * id_notificacion : INT UNSIGNED <<PK>>
+  --
+  * id_usuario : INT UNSIGNED <<FK>>
+    id_cita : INT UNSIGNED <<FK>>
+  * tipo : ENUM(RECORDATORIO, CONFIRMACION,\n CANCELACION, PAGO, SISTEMA)
+  * titulo : VARCHAR(120)
+  * mensaje : VARCHAR(500)
+  * leida : TINYINT(1)
+    fecha_lectura : DATETIME
+  * created_at : TIMESTAMP
+}
+
+entity "auditoria" as auditoria {
+  * id_auditoria : BIGINT UNSIGNED <<PK>>
+  --
+    id_usuario : INT UNSIGNED <<FK>>
+  * tabla_afectada : ENUM(...16 tablas)
+    id_registro : BIGINT UNSIGNED (ref. lógica, sin FK)
+  * accion : ENUM(INSERT, UPDATE, DELETE,\n LOGIN, LOGOUT, LOGIN_FALLIDO)
+    detalle : JSON
+    ip_origen : VARCHAR(45)
+  * fecha_evento : TIMESTAMP
+}
+
+entity "configuracion" as configuracion {
+  * id_config : INT UNSIGNED <<PK>>
+  --
+  * clave : VARCHAR(60) <<UQ>>
+  * valor : VARCHAR(255)
+  * tipo_dato : ENUM(STRING, INT, BOOLEAN, JSON, DECIMAL)
+    descripcion : VARCHAR(255)
+  * editable : TINYINT(1)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+}
+
+' =====================================================================
+' RELACIONES (notación pata de gallo)
+'   ||  exactamente uno     |o  cero o uno
+'   }|  uno o muchos        }o  cero o muchos
+' =====================================================================
+
+' Identidad
+roles          ||--o{ usuarios        : "asigna rol"
+usuarios       ||--o| profesionales   : "1:1 ficha terapeuta"
+usuarios       ||--o| pacientes       : "1:1 ficha paciente"
+
+' Especialidades
+especialidades |o--o{ profesionales   : "especialidad principal"
+profesionales  ||--o{ prof_esp        : "tiene"
+especialidades ||--o{ prof_esp        : "clasifica"
+especialidades |o--o{ servicios       : "agrupa"
+
+' Agenda individual
+profesionales  ||--o{ bloques         : "define disponibilidad"
+pacientes      ||--o{ citas           : "reserva"
+profesionales  ||--o{ citas           : "atiende"
+servicios      ||--o{ citas           : "prestación"
+bloques        |o--o{ citas           : "origen del slot"
+
+' Talleres
+profesionales  ||--o{ clases          : "instruye"
+pacientes      ||--o{ inscripciones   : "se inscribe"
+clases         ||--o{ inscripciones   : "recibe"
+
+' Pagos (XOR: cita o inscripción)
+citas          |o--o| pagos           : "paga (XOR)"
+inscripciones  |o--o| pagos           : "paga (XOR)"
+pagos          ||--o| comprobantes    : "1:1 comprobante"
+
+' Contenido y sistema
+usuarios       ||--o{ novedades       : "publica (admin)"
+usuarios       ||--o{ notificaciones  : "recibe"
+citas          |o--o{ notificaciones  : "referencia"
+usuarios       |o--o{ auditoria       : "actor"
+
+note bottom of configuracion
+  Tabla independiente (clave/valor).
+  Sin relaciones.
+end note
+
+note right of citas
+  Reglas en BD:
+  • sp_agendar_cita (transacción + FOR UPDATE)
+  • trg_citas_bi/bu_validacion (rango, solapamiento,
+    deriva es_grupal desde bloques_horarios.aforo_maximo)
+  • trg_citas_ai_auditoria
+end note
+
+note right of inscripciones
+  Aforo por triggers sobre clases_grupales.cupos_disponibles:
+  • trg_control_aforo_clases
+  • trg_inscripcion_cupo_update
+  • trg_inscripcion_cupo_delete
+end note
+
+legend bottom left
+  Vista: v_usuarios_roles = usuarios ⨝ roles
+  17 tablas · InnoDB · utf8mb4_unicode_ci
+endlegend
+
+@enduml

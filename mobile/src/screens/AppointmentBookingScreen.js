@@ -38,15 +38,106 @@ export const AppointmentBookingScreen = ({ onBack }) => {
   const [step, setStep] = useState(1);
   const [selectedSpecialty, setSelectedSpecialty] = useState('Todos');
   const [selectedTerapeuta, setSelectedTerapeuta] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('WEBPAY');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentReceipt, setPaymentReceipt] = useState(null);
 
+  const getMondayOfCurrentWeek = (offset = 0) => {
+    const today = new Date();
+    const day = today.getDay(); // 0 is Sunday, 1 is Monday...
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today);
+    monday.setDate(diff + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  };
+
+  const getWeekDays = (offset = 0) => {
+    const monday = getMondayOfCurrentWeek(offset);
+    const dayLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+    const fullDayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    return dayLabels.map((dayLabel, index) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      return {
+        dayLabel,
+        fullDayName: fullDayNames[index],
+        dayNum: d.getDate(),
+        dayOfWeek: index + 1, // 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie
+        monthName: months[d.getMonth()],
+        year: d.getFullYear(),
+        fullDate: d,
+      };
+    });
+  };
+
+  const getMonthTitle = (offset = 0) => {
+    const monday = getMondayOfCurrentWeek(offset);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    const startMonth = months[monday.getMonth()];
+    const endMonth = months[friday.getMonth()];
+
+    if (startMonth === endMonth) {
+      return `${startMonth} ${monday.getFullYear()}`;
+    }
+    return `${startMonth} - ${endMonth} ${friday.getFullYear()}`;
+  };
+
+  const currentWeekDays = getWeekDays(weekOffset);
+  const currentSelectedDayObj = currentWeekDays.find((d) => d.dayOfWeek === selectedDayOfWeek) || currentWeekDays[0];
+
   const [terapeutas, setTerapeutas] = useState([]);
   const [loadingTerapeutas, setLoadingTerapeutas] = useState(true);
   const [errorTerapeutas, setErrorTerapeutas] = useState(null);
+
+  const [dynamicSlots, setDynamicSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  useEffect(() => {
+    if (!selectedTerapeuta) return;
+
+    const fetchSchedulesForTherapist = async () => {
+      setLoadingSlots(true);
+      try {
+        const token = await storageService.getToken();
+        const response = await fetch(`${API_BASE_URL}/schedules?therapistId=${selectedTerapeuta.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          setDynamicSlots(data.data);
+        } else {
+          setDynamicSlots([]);
+        }
+      } catch (err) {
+        console.error('Error al obtener horarios del terapeuta:', err);
+        setDynamicSlots([]);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    fetchSchedulesForTherapist();
+  }, [selectedTerapeuta]);
 
   useEffect(() => {
     const fetchTerapeutas = async () => {
@@ -248,26 +339,38 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 </View>
               </View>
 
-              {/* Selector Semanal */}
+              {/* Selector Semanal con Navegación */}
               <View style={styles.weekSelectorHeader}>
-                <Text style={styles.monthTitle}>Septiembre 2026</Text>
+                <TouchableOpacity
+                  style={styles.weekNavBtn}
+                  onPress={() => setWeekOffset((prev) => prev - 1)}
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.text.primary} />
+                </TouchableOpacity>
+
+                <Text style={styles.monthTitle}>{getMonthTitle(weekOffset)}</Text>
+
+                <TouchableOpacity
+                  style={styles.weekNavBtn}
+                  onPress={() => setWeekOffset((prev) => prev + 1)}
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.text.primary} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.daysRow}>
-                {[
-                  { day: 'Lun', num: 21 },
-                  { day: 'Mar', num: 22 },
-                  { day: 'Mié', num: 23 },
-                  { day: 'Jue', num: 24 },
-                  { day: 'Vie', num: 25 },
-                ].map((d) => (
+                {currentWeekDays.map((d) => (
                   <TouchableOpacity
-                    key={d.num}
-                    style={[styles.dayItem, selectedDay === d.num && styles.dayItemActive]}
-                    onPress={() => setSelectedDay(d.num)}
+                    key={d.dayOfWeek}
+                    style={[styles.dayItem, selectedDayOfWeek === d.dayOfWeek && styles.dayItemActive]}
+                    onPress={() => setSelectedDayOfWeek(d.dayOfWeek)}
                   >
-                    <Text style={[styles.dayLabel, selectedDay === d.num && styles.dayLabelActive]}>{d.day}</Text>
-                    <Text style={[styles.dayNum, selectedDay === d.num && styles.dayNumActive]}>{d.num}</Text>
+                    <Text style={[styles.dayLabel, selectedDayOfWeek === d.dayOfWeek && styles.dayLabelActive]}>
+                      {d.dayLabel}
+                    </Text>
+                    <Text style={[styles.dayNum, selectedDayOfWeek === d.dayOfWeek && styles.dayNumActive]}>
+                      {d.dayNum}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -275,30 +378,57 @@ export const AppointmentBookingScreen = ({ onBack }) => {
               {/* Grid de Horas */}
               <Text style={styles.sectionSub}>Horas disponibles para el día seleccionado</Text>
 
-              <View style={styles.slotsGrid}>
-                {timeSlots.map((slot) => (
-                  <TouchableOpacity
-                    key={slot.time}
-                    disabled={!slot.available}
-                    style={[
-                      styles.slotBtn,
-                      !slot.available && styles.slotDisabled,
-                      selectedSlot === slot.time && slot.available && styles.slotActive,
-                    ]}
-                    onPress={() => setSelectedSlot(slot.time)}
-                  >
-                    <Text
-                      style={[
-                        styles.slotText,
-                        !slot.available && styles.slotTextDisabled,
-                        selectedSlot === slot.time && slot.available && styles.slotTextActive,
-                      ]}
-                    >
-                      {slot.time}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {loadingSlots ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <ActivityIndicator color={colors.primary.main} />
+                  <Text style={{ marginTop: 8, color: colors.text.secondary }}>Cargando disponibilidad real...</Text>
+                </View>
+              ) : (
+                <View style={styles.slotsGrid}>
+                  {(() => {
+                    const blocksForDay = dynamicSlots.filter((b) => Number(b.day_of_week) === selectedDayOfWeek);
+
+                    if (blocksForDay.length === 0) {
+                      return (
+                        <View style={{ padding: 20, alignItems: 'center', width: '100%' }}>
+                          <Ionicons name="calendar-outline" size={32} color={colors.text.placeholder} />
+                          <Text style={{ color: colors.text.secondary, marginTop: 8, textAlign: 'center', fontSize: 14, fontWeight: '500' }}>
+                            El especialista no atiende en el día seleccionado.
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    const computedSlots = blocksForDay.map((b) => ({
+                      time: `${b.start_time?.substring(0, 5)} - ${b.end_time?.substring(0, 5)}`,
+                      available: Boolean(b.active !== 0),
+                    }));
+
+                    return computedSlots.map((slot) => (
+                      <TouchableOpacity
+                        key={slot.time}
+                        disabled={!slot.available}
+                        style={[
+                          styles.slotBtn,
+                          !slot.available && styles.slotDisabled,
+                          selectedSlot === slot.time && slot.available && styles.slotActive,
+                        ]}
+                        onPress={() => setSelectedSlot(slot.time)}
+                      >
+                        <Text
+                          style={[
+                            styles.slotText,
+                            !slot.available && styles.slotTextDisabled,
+                            selectedSlot === slot.time && slot.available && styles.slotTextActive,
+                          ]}
+                        >
+                          {slot.time}
+                        </Text>
+                      </TouchableOpacity>
+                    ));
+                  })()}
+                </View>
+              )}
 
               <TouchableOpacity style={styles.primaryActionBtn} onPress={handleGoToCheckout}>
                 <Text style={styles.primaryActionBtnText}>Continuar al Pago</Text>
@@ -326,7 +456,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Fecha y Hora:</Text>
                   <Text style={styles.detailValue}>
-                    Miércoles {selectedDay} de Septiembre, {selectedSlot} hrs
+                    {`${currentSelectedDayObj.fullDayName} ${currentSelectedDayObj.dayNum} de ${currentSelectedDayObj.monthName}\n${selectedSlot || '09:00 - 09:45'} hrs`}
                   </Text>
                 </View>
 
@@ -420,7 +550,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 </Text>
                 <Text style={styles.confirmLine}>
                   <Text style={{ fontWeight: '700' }}>Fecha: </Text>
-                  Miércoles {selectedDay} de Septiembre
+                  {`${currentSelectedDayObj.fullDayName} ${currentSelectedDayObj.dayNum} de ${currentSelectedDayObj.monthName} ${currentSelectedDayObj.year}`}
                 </Text>
                 <Text style={styles.confirmLine}>
                   <Text style={{ fontWeight: '700' }}>Horario: </Text>
@@ -624,8 +754,16 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   weekSelectorHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  weekNavBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.neutral.background,
   },
   monthTitle: {
     fontSize: 15,
@@ -726,16 +864,21 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 8,
+    gap: 8,
   },
   detailLabel: {
     fontSize: 13,
     color: colors.text.secondary,
+    width: 95,
   },
   detailValue: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
     color: colors.text.primary,
+    textAlign: 'right',
   },
   divider: {
     height: 1,

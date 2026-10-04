@@ -46,7 +46,7 @@ export const authService = {
           'Accept': 'application/json',
         },
         body: JSON.stringify({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password,
         }),
         signal: controller.signal,

@@ -1,6 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-const getAuthToken = () => localStorage.getItem('sapc_token');
+const getAuthToken = () => {
+  try {
+    const savedSession = localStorage.getItem('sapc_web_admin_session');
+    if (savedSession) {
+      const parsed = JSON.parse(savedSession);
+      if (parsed.token) return parsed.token;
+    }
+  } catch (e) {}
+  return localStorage.getItem('sapc_token') || '';
+};
 
 export const schedulesService = {
   /**
