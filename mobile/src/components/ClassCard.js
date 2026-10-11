@@ -18,7 +18,7 @@ export const ClassCard = ({ item, onSelect }) => {
       </Text>
 
       <Text style={styles.timeText}>
-        {item.fecha_clase || 'Mar.'} {item.start_time?.substring(0, 5) || '18:00'} - {item.end_time?.substring(0, 5) || '19:15'} hrs
+        {item.fecha_clase || item.class_date || 'Mar.'} {item.start_time?.substring(0, 5) || '18:00'} - {item.end_time?.substring(0, 5) || '19:15'} hrs
       </Text>
 
       <View style={styles.footerRow}>

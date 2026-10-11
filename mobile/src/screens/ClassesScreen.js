@@ -20,17 +20,19 @@ import colors from '../theme/colors';
 
 const LOGO_ICON = require('../../assets/logo-icon.png');
 
-export const ClassesScreen = ({ onBack }) => {
+export const ClassesScreen = ({ onBack, onLogout }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [isAuthError, setIsAuthError] = useState(false);
 
   // Confirmation modal state
   const [selectedClass, setSelectedClass] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ['Todos', 'Yoga', 'Pilates', 'Cardio'];
+  const categories = ['Todos', 'Rehabilitación', 'Cognitiva', 'Postural'];
 
   useEffect(() => {
     loadClasses();
@@ -38,9 +40,19 @@ export const ClassesScreen = ({ onBack }) => {
 
   const loadClasses = async () => {
     setLoading(true);
+    setErrorMessage(null);
+    setIsAuthError(false);
     const res = await classesService.getClasses();
     if (res.success) {
       setClasses(res.data);
+    } else {
+      setClasses([]);
+      if (res.status === 401 || res.error === 'TOKEN_EXPIRED' || res.error === 'INVALID_TOKEN' || res.error === 'MISSING_TOKEN') {
+        setIsAuthError(true);
+        setErrorMessage('Tu sesión ha expirado o no es válida. Por favor, vuelve a iniciar sesión para ver los talleres.');
+      } else {
+        setErrorMessage(res.message || 'No se pudieron cargar los talleres disponibles.');
+      }
     }
     setLoading(false);
   };
@@ -121,6 +133,20 @@ export const ClassesScreen = ({ onBack }) => {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary.main} />
             <Text style={styles.loadingText}>Cargando catálogo y aforos...</Text>
+          </View>
+        ) : errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={52} color="#E02424" />
+            <Text style={styles.errorTitle}>No se pudieron cargar los talleres</Text>
+            <Text style={styles.errorDescription}>{errorMessage}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadClasses}>
+              <Text style={styles.retryButtonText}>Reintentar</Text>
+            </TouchableOpacity>
+            {isAuthError && onLogout && (
+              <TouchableOpacity style={styles.authErrorButton} onPress={onLogout}>
+                <Text style={styles.authErrorButtonText}>Cerrar e Iniciar Sesión</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <FlatList
@@ -298,6 +324,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     marginTop: 40,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    marginTop: 40,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginTop: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  authErrorButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  authErrorButtonText: {
+    color: colors.primary.main,
+    fontWeight: '600',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
   /* Modal Overlay Styles */
   modalOverlay: {

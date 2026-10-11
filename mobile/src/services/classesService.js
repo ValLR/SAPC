@@ -1,16 +1,5 @@
-import Constants from 'expo-constants';
 import storageService from './storageService';
-
-const getBackendHost = () => {
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:3000/api`;
-  }
-  return 'http://localhost:3000/api';
-};
-
-const API_BASE_URL = getBackendHost();
+import { API_BASE_URL } from './apiConfig';
 
 /**
  * Normalizes raw API response objects into standard ClassItem data contract.

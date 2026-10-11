@@ -38,7 +38,7 @@ function Navigation() {
     <View style={styles.container}>
       <StatusBar style="auto" />
       {currentScreen === 'classes' && (
-        <ClassesScreen onBack={() => setCurrentScreen('home')} />
+        <ClassesScreen onBack={() => setCurrentScreen('home')} onLogout={logout} />
       )}
       {currentScreen === 'appointments' && (
         <AppointmentBookingScreen onBack={() => setCurrentScreen('home')} />

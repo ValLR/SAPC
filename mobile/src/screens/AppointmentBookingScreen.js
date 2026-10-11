@@ -18,18 +18,7 @@ import paymentsService from '../services/paymentsService';
 import storageService from '../services/storageService';
 
 
-// Obtiene la IP del backend de la misma forma que authService / classesService
-const getBackendHost = () => {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Constants = require('expo-constants').default;
-    const hostUri = Constants.expoConfig?.hostUri;
-    if (hostUri) return `http://${hostUri.split(':')[0]}:3000/api`;
-  } catch (_) { }
-  return 'http://localhost:3000/api';
-};
-
-const API_BASE_URL = getBackendHost();
+import { API_BASE_URL } from '../services/apiConfig';
 
 const LOGO_ICON = require('../../assets/logo-icon.png');
 
@@ -41,6 +30,10 @@ export const AppointmentBookingScreen = ({ onBack }) => {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedSlotObj, setSelectedSlotObj] = useState(null);
+  const [createdCitaId, setCreatedCitaId] = useState(null);
+  const [createdCitaMonto, setCreatedCitaMonto] = useState(25000);
+  const [isCreatingCita, setIsCreatingCita] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('WEBPAY');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentReceipt, setPaymentReceipt] = useState(null);
@@ -48,11 +41,26 @@ export const AppointmentBookingScreen = ({ onBack }) => {
   const getMondayOfCurrentWeek = (offset = 0) => {
     const today = new Date();
     const day = today.getDay(); // 0 is Sunday, 1 is Monday...
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    // Si hoy es fin de semana (Sábado = 6 o Domingo = 0), la semana laboral ya concluyó.
+    // La primera semana disponible para agendar debe iniciar el próximo Lunes.
+    let daysToMonday = 1 - day;
+    if (day === 0) {
+      daysToMonday = 1;
+    } else if (day === 6) {
+      daysToMonday = 2;
+    }
     const monday = new Date(today);
-    monday.setDate(diff + offset * 7);
+    monday.setDate(today.getDate() + daysToMonday + offset * 7);
     monday.setHours(0, 0, 0, 0);
     return monday;
+  };
+
+  const isDateInPast = (d) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(d);
+    target.setHours(0, 0, 0, 0);
+    return target < today;
   };
 
   const getWeekDays = (offset = 0) => {
@@ -67,6 +75,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
     return dayLabels.map((dayLabel, index) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + index);
+      const isPast = isDateInPast(d);
       return {
         dayLabel,
         fullDayName: fullDayNames[index],
@@ -75,6 +84,7 @@ export const AppointmentBookingScreen = ({ onBack }) => {
         monthName: months[d.getMonth()],
         year: d.getFullYear(),
         fullDate: d,
+        isPast,
       };
     });
   };
@@ -99,7 +109,17 @@ export const AppointmentBookingScreen = ({ onBack }) => {
   };
 
   const currentWeekDays = getWeekDays(weekOffset);
-  const currentSelectedDayObj = currentWeekDays.find((d) => d.dayOfWeek === selectedDayOfWeek) || currentWeekDays[0];
+  const currentSelectedDayObj = currentWeekDays.find((d) => d.dayOfWeek === selectedDayOfWeek) || currentWeekDays.find((d) => !d.isPast) || currentWeekDays[0];
+
+  useEffect(() => {
+    const firstAvailableDay = currentWeekDays.find((d) => !d.isPast);
+    if (firstAvailableDay) {
+      const currentSelected = currentWeekDays.find((d) => d.dayOfWeek === selectedDayOfWeek);
+      if (!currentSelected || currentSelected.isPast) {
+        setSelectedDayOfWeek(firstAvailableDay.dayOfWeek);
+      }
+    }
+  }, [weekOffset]);
 
   const [terapeutas, setTerapeutas] = useState([]);
   const [loadingTerapeutas, setLoadingTerapeutas] = useState(true);
@@ -196,24 +216,110 @@ export const AppointmentBookingScreen = ({ onBack }) => {
 
   const handleSelectTerapeuta = (terapeuta) => {
     setSelectedTerapeuta(terapeuta);
+    setSelectedSlot(null);
+    setSelectedSlotObj(null);
+    setWeekOffset(0);
+    const initialDays = getWeekDays(0);
+    const firstAvailable = initialDays.find((d) => !d.isPast);
+    if (firstAvailable) {
+      setSelectedDayOfWeek(firstAvailable.dayOfWeek);
+    }
     setStep(2);
   };
 
-  const handleGoToCheckout = () => {
-    setStep(3);
+  const handleGoToCheckout = async () => {
+    if (!selectedTerapeuta || !selectedSlot || !selectedSlotObj) {
+      Alert.alert('Selección incompleta', 'Por favor selecciona una hora disponible.');
+      return;
+    }
+
+    if (currentSelectedDayObj?.isPast) {
+      Alert.alert('Fecha no disponible', 'No puedes agendar una cita en una fecha u horario que ya ha pasado.');
+      return;
+    }
+
+    setIsCreatingCita(true);
+    try {
+      const token = await storageService.getToken();
+      const pad2 = (num) => String(num).padStart(2, '0');
+      const d = currentSelectedDayObj.fullDate;
+      const fechaISO = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+      const targetBlock = selectedSlotObj?.rawBlock || selectedSlotObj;
+      const blockId = Number(
+        targetBlock?.id_block ?? 
+        targetBlock?.id_bloque ?? 
+        targetBlock?.id
+      );
+
+      if (!blockId || isNaN(blockId)) {
+        Alert.alert('Error', 'No se pudo identificar el bloque horario.');
+        setIsCreatingCita(false);
+        return;
+      }
+
+      const blockDay = Number(targetBlock?.day_of_week);
+      if (blockDay && blockDay !== selectedDayOfWeek) {
+        Alert.alert('Inconsistencia de Horario', 'El bloque seleccionado no coincide con el día de la semana. Por favor vuelve a seleccionar tu hora.');
+        setSelectedSlot(null);
+        setSelectedSlotObj(null);
+        setIsCreatingCita(false);
+        return;
+      }
+
+      const horaInicioStr = selectedSlotObj.horaInicio || `${selectedSlot.split(' - ')[0]}:00`;
+      const serviceId = selectedTerapeuta?.id_profesional === 2 ? 2 :
+                        selectedTerapeuta?.id_profesional === 3 ? 3 : 1;
+      const defaultMonto = serviceId === 3 ? 30000 : serviceId === 2 ? 22000 : 25000;
+
+      const response = await fetch(`${API_BASE_URL}/citas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          id_profesional: selectedTerapeuta.id_profesional || selectedTerapeuta.id,
+          id_servicio: serviceId,
+          id_bloque: blockId,
+          fecha: fechaISO,
+          hora_inicio: horaInicioStr,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        Alert.alert('Error de Agendamiento', data.message || 'No se pudo reservar la cita en el servidor.');
+        setIsCreatingCita(false);
+        return;
+      }
+
+      setCreatedCitaId(data.data?.id_cita || 1);
+      setCreatedCitaMonto(data.data?.precio || defaultMonto);
+      setStep(3);
+    } catch (err) {
+      Alert.alert('Error de Red', 'No se pudo conectar con el servidor para agendar la cita.');
+    } finally {
+      setIsCreatingCita(false);
+    }
   };
 
   const handleCancelCheckout = async () => {
-    // Escenario 2 Gherkin: libera el bloque y vuelve al resumen/calendario
-    await paymentsService.cancelAppointmentHold(1);
+    // Escenario 2 Gherkin: libera la cita real agendada en backend
+    if (createdCitaId) {
+      await paymentsService.cancelAppointmentHold(createdCitaId);
+      setCreatedCitaId(null);
+    }
     setStep(2);
   };
 
   const handleProcessPayment = async () => {
     setIsProcessingPayment(true);
 
-    const res = await paymentsService.simulatePayment(1, {
-      monto: 25000,
+    const citaIdToPay = createdCitaId || 1;
+    const res = await paymentsService.simulatePayment(citaIdToPay, {
+      monto: createdCitaMonto,
       metodoPago: paymentMethod,
     });
 
@@ -342,17 +448,31 @@ export const AppointmentBookingScreen = ({ onBack }) => {
               {/* Selector Semanal con Navegación */}
               <View style={styles.weekSelectorHeader}>
                 <TouchableOpacity
-                  style={styles.weekNavBtn}
-                  onPress={() => setWeekOffset((prev) => prev - 1)}
+                  style={[styles.weekNavBtn, weekOffset <= 0 && styles.weekNavBtnDisabled]}
+                  disabled={weekOffset <= 0}
+                  onPress={() => {
+                    if (weekOffset <= 0) return;
+                    setWeekOffset((prev) => prev - 1);
+                    setSelectedSlot(null);
+                    setSelectedSlotObj(null);
+                  }}
                 >
-                  <Ionicons name="chevron-back" size={20} color={colors.text.primary} />
+                  <Ionicons
+                    name="chevron-back"
+                    size={20}
+                    color={weekOffset <= 0 ? '#CBD5E1' : colors.text.primary}
+                  />
                 </TouchableOpacity>
 
                 <Text style={styles.monthTitle}>{getMonthTitle(weekOffset)}</Text>
 
                 <TouchableOpacity
                   style={styles.weekNavBtn}
-                  onPress={() => setWeekOffset((prev) => prev + 1)}
+                  onPress={() => {
+                    setWeekOffset((prev) => prev + 1);
+                    setSelectedSlot(null);
+                    setSelectedSlotObj(null);
+                  }}
                 >
                   <Ionicons name="chevron-forward" size={20} color={colors.text.primary} />
                 </TouchableOpacity>
@@ -362,13 +482,35 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 {currentWeekDays.map((d) => (
                   <TouchableOpacity
                     key={d.dayOfWeek}
-                    style={[styles.dayItem, selectedDayOfWeek === d.dayOfWeek && styles.dayItemActive]}
-                    onPress={() => setSelectedDayOfWeek(d.dayOfWeek)}
+                    disabled={d.isPast}
+                    style={[
+                      styles.dayItem,
+                      d.isPast && styles.dayItemDisabled,
+                      selectedDayOfWeek === d.dayOfWeek && !d.isPast && styles.dayItemActive,
+                    ]}
+                    onPress={() => {
+                      if (d.isPast) return;
+                      setSelectedDayOfWeek(d.dayOfWeek);
+                      setSelectedSlot(null);
+                      setSelectedSlotObj(null);
+                    }}
                   >
-                    <Text style={[styles.dayLabel, selectedDayOfWeek === d.dayOfWeek && styles.dayLabelActive]}>
+                    <Text
+                      style={[
+                        styles.dayLabel,
+                        d.isPast && styles.dayLabelDisabled,
+                        selectedDayOfWeek === d.dayOfWeek && !d.isPast && styles.dayLabelActive,
+                      ]}
+                    >
                       {d.dayLabel}
                     </Text>
-                    <Text style={[styles.dayNum, selectedDayOfWeek === d.dayOfWeek && styles.dayNumActive]}>
+                    <Text
+                      style={[
+                        styles.dayNum,
+                        d.isPast && styles.dayNumDisabled,
+                        selectedDayOfWeek === d.dayOfWeek && !d.isPast && styles.dayNumActive,
+                      ]}
+                    >
                       {d.dayNum}
                     </Text>
                   </TouchableOpacity>
@@ -399,10 +541,37 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                       );
                     }
 
-                    const computedSlots = blocksForDay.map((b) => ({
-                      time: `${b.start_time?.substring(0, 5)} - ${b.end_time?.substring(0, 5)}`,
-                      available: Boolean(b.active !== 0),
-                    }));
+                    const computedSlots = [];
+                    blocksForDay.forEach((b) => {
+                      const [startH, startM] = (b.start_time || '09:00').split(':').map(Number);
+                      const [endH, endM] = (b.end_time || '13:00').split(':').map(Number);
+                      const startMin = startH * 60 + (startM || 0);
+                      const endMin = endH * 60 + (endM || 0);
+
+                      if (endMin - startMin >= 60) {
+                        for (let m = startMin; m + 45 <= endMin; m += 60) {
+                          const sH = Math.floor(m / 60);
+                          const sM = m % 60;
+                          const eH = Math.floor((m + 45) / 60);
+                          const eM = (m + 45) % 60;
+                          const pad = (n) => String(n).padStart(2, '0');
+                          const timeLabel = `${pad(sH)}:${pad(sM)} - ${pad(eH)}:${pad(eM)}`;
+                          computedSlots.push({
+                            time: timeLabel,
+                            horaInicio: `${pad(sH)}:${pad(sM)}:00`,
+                            available: Boolean(b.active !== 0),
+                            rawBlock: b,
+                          });
+                        }
+                      } else {
+                        computedSlots.push({
+                          time: `${b.start_time?.substring(0, 5)} - ${b.end_time?.substring(0, 5)}`,
+                          horaInicio: `${b.start_time?.substring(0, 5)}:00`,
+                          available: Boolean(b.active !== 0),
+                          rawBlock: b,
+                        });
+                      }
+                    });
 
                     return computedSlots.map((slot) => (
                       <TouchableOpacity
@@ -413,7 +582,10 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                           !slot.available && styles.slotDisabled,
                           selectedSlot === slot.time && slot.available && styles.slotActive,
                         ]}
-                        onPress={() => setSelectedSlot(slot.time)}
+                        onPress={() => {
+                          setSelectedSlot(slot.time);
+                          setSelectedSlotObj(slot);
+                        }}
                       >
                         <Text
                           style={[
@@ -430,8 +602,16 @@ export const AppointmentBookingScreen = ({ onBack }) => {
                 </View>
               )}
 
-              <TouchableOpacity style={styles.primaryActionBtn} onPress={handleGoToCheckout}>
-                <Text style={styles.primaryActionBtnText}>Continuar al Pago</Text>
+              <TouchableOpacity
+                style={styles.primaryActionBtn}
+                onPress={handleGoToCheckout}
+                disabled={isCreatingCita}
+              >
+                {isCreatingCita ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionBtnText}>Continuar al Pago</Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -789,12 +969,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.main,
     borderColor: colors.primary.main,
   },
+  dayItemDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    opacity: 0.45,
+  },
   dayLabel: {
     fontSize: 12,
     color: colors.text.secondary,
   },
   dayLabelActive: {
     color: '#FFFFFF',
+  },
+  dayLabelDisabled: {
+    color: '#9CA3AF',
   },
   dayNum: {
     fontSize: 18,
@@ -804,6 +992,12 @@ const styles = StyleSheet.create({
   },
   dayNumActive: {
     color: '#FFFFFF',
+  },
+  dayNumDisabled: {
+    color: '#9CA3AF',
+  },
+  weekNavBtnDisabled: {
+    opacity: 0.35,
   },
   sectionSub: {
     fontSize: 13,
